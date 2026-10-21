@@ -1,6 +1,6 @@
 # Build-only dependencies. The application dependencies come from pyproject.toml.
 pyinstaller>=6,<7
-pillow>=10,<14
+pillow>=13.0.0,<14
 pywebview>=5,<7
 
 # Optional on Linux/macOS: renders the SVG icon without a browser. When the
