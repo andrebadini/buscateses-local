@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "Se você usar o BuscaTeses em uma pesquisa, cite este software conforme os campos abaixo."
+type: software
+title: "BuscaTeses: busca local e inteligente no Catálogo de Teses e Dissertações da CAPES"
+abstract: >-
+  Aplicativo de código aberto, 100% local, para buscar teses e dissertações brasileiras por palavras e por
+  significado, pesquisar em uma biblioteca pessoal de documentos e expor o catálogo a assistentes de IA por meio do
+  protocolo MCP.
+authors:
+  - family-names: Badini
+    given-names: André
+version: "1.0.0"
+date-released: "2026-10-21"
+license: MIT
+repository-code: "https://github.com/andrebadini/buscateses-local"
+url: "https://github.com/andrebadini/buscateses-local"
+keywords:
+  - teses
+  - dissertações
+  - CAPES
+  - busca semântica
+  - MCP
+  - pesquisa acadêmica
+  - acessibilidade
+references:
+  - type: dataset
+    title: "Catálogo de Teses e Dissertações da CAPES — versão normalizada do BuscaTeses"
+    authors:
+      - name: "CAPES — Coordenação de Aperfeiçoamento de Pessoal de Nível Superior"
+    url: "https://huggingface.co/datasets/andrebadini/catalogo-teses-capes"
+    repository-code: "https://huggingface.co/datasets/andrebadini/catalogo-teses-capes"
+    license: CC-BY-4.0
+    date-released: "2026-10-21"

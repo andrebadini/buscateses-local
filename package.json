@@ -1,0 +1,15 @@
+{
+  "name": "buscateses-e2e",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Testes de interface do BuscaTeses com Playwright",
+  "type": "module",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "screenshots": "playwright test e2e/screenshots.spec.js"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "@playwright/test": "^1.55.0"
+  }
+}

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="Busca local e inteligente no Catálogo de Teses e Dissertações da CAPES e nos seus próprios documentos."
+    />
+    <title>BuscaTeses</title>
+    <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml" />
+    <script src="js/theme-boot.js"></script>
+    <link rel="stylesheet" href="css/app.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+    <header class="site-header">
+      <div class="site-header__inner">
+        <a class="brand" href="#/" aria-label="BuscaTeses, ir para a busca">
+          <img
+            class="brand__icon"
+            src="assets/brand/icon.svg"
+            width="32"
+            height="32"
+            alt=""
+          />
+          <span class="brand__name">BuscaTeses</span>
+        </a>
+
+        <button
+          class="icon-btn nav-toggle"
+          id="nav-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="nav-principal"
+        >
+          <span class="sr-only">Abrir menu</span>
+          <span class="nav-toggle__bars" aria-hidden="true"></span>
+        </button>
+
+        <nav class="site-nav" id="nav-principal" aria-label="Navegação principal">
+          <ul class="site-nav__list">
+            <li><a href="#/" data-nav="search">Buscar</a></li>
+            <li><a href="#/biblioteca" data-nav="library">Minha biblioteca</a></li>
+            <li><a href="#/selecao" data-nav="selection">Minha seleção</a></li>
+            <li><a href="#/conectar" data-nav="connect">Conectar assistentes</a></li>
+            <li><a href="#/configuracoes" data-nav="settings">Configurações</a></li>
+          </ul>
+        </nav>
+
+        <button
+          class="header-action libras-toggle"
+          id="libras-toggle"
+          type="button"
+          aria-pressed="false"
+          title="Ativar o tradutor de Libras"
+        >
+          Libras
+        </button>
+
+        <button
+          class="icon-btn theme-toggle"
+          id="theme-toggle"
+          type="button"
+          aria-label="Mudar para o tema escuro"
+          title="Mudar tema"
+        ></button>
+      </div>
+    </header>
+
+    <div id="banners" class="banners" aria-live="polite"></div>
+
+    <main id="conteudo" class="site-main" tabindex="-1">
+      <div class="boot-loading" role="status">
+        <span class="boot-loading__dot" aria-hidden="true"></span>
+        Carregando o BuscaTeses…
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="site-footer__inner">
+        <p>
+          BuscaTeses <span id="footer-version"></span> · Projeto independente, sem vínculo
+          com a CAPES.
+        </p>
+        <nav aria-label="Navegação do rodapé">
+          <a href="#/sobre">Sobre</a>
+          <a href="#/configuracoes">Configurações</a>
+        </nav>
+      </div>
+    </footer>
+
+    <div
+      id="toasts"
+      class="toasts"
+      role="status"
+      aria-live="polite"
+      aria-atomic="false"
+    ></div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

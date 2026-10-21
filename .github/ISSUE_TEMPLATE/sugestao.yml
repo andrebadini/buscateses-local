@@ -1,0 +1,79 @@
+name: Sugerir uma melhoria
+description: Proponha uma funcionalidade, melhoria de uso ou de acessibilidade.
+title: "[Sugestão]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado pela sugestão! Descreva o problema antes da solução: isso ajuda a avaliar alternativas.
+
+        **Não inclua dados pessoais** nem conteúdo da sua biblioteca.
+
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qual problema ou necessidade você tem?
+      description: 'Exemplo: "Ao revisar uma seleção grande, não consigo..."'
+    validations:
+      required: true
+
+  - type: textarea
+    id: solucao
+    attributes:
+      label: Que solução você imagina?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Alternativas que você já tentou ou considerou
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - Busca e filtros
+        - Catálogo e dados
+        - Minha biblioteca
+        - Assistentes de IA (MCP)
+        - Interface e acessibilidade
+        - Instalação e atualização
+        - Documentação
+        - Outra
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sistema
+    attributes:
+      label: Sistema operacional (opcional)
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - Todos
+    validations:
+      required: false
+
+  - type: input
+    id: versao
+    attributes:
+      label: Versão do BuscaTeses (opcional)
+      placeholder: "1.0.0"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmacoes
+    attributes:
+      label: Confirmação
+      options:
+        - label: Procurei sugestões parecidas nas issues existentes.
+          required: true
+        - label: Não incluí dados pessoais, tokens ou conteúdo da minha biblioteca.
+          required: true
