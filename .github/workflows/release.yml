@@ -21,7 +21,7 @@ jobs:
     name: Validar tag e versão
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
       - name: Conferir se a versão do pacote corresponde à tag
@@ -74,10 +74,10 @@ jobs:
           - os: ubuntu-22.04
             arch: x86_64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -108,7 +108,7 @@ jobs:
       - name: Gerar instalador e rodar o teste de fumaça
         run: python packaging/build.py --skip-deps
       - name: Publicar artefatos do build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: buscateses-${{ matrix.os }}-${{ matrix.arch }}
           path: |
@@ -124,11 +124,11 @@ jobs:
     needs: build
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
       - name: Baixar todos os instaladores
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: release-assets
           merge-multiple: true
@@ -166,7 +166,7 @@ jobs:
           fi
           cat RELEASE_NOTES.md
       - name: Criar a tag e publicar a release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ inputs.tag }}
           target_commitish: ${{ github.sha }}
