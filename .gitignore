@@ -1,0 +1,32 @@
+# Python
+.venv*/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+# Build
+build/
+dist/
+packaging/output/
+# Node / e2e
+node_modules/
+playwright-report/
+test-results/
+# Dataset pipeline outputs (never commit data)
+tools/dataset/work/
+data/
+*.parquet
+*.npy
+*.sqlite
+*.db
+# Local
+.env
+.DS_Store
+Thumbs.db
+# Bundled truecasing lexicon (generated, but shipped with the package)
+!src/buscateses/data/
+!src/buscateses/data/*.json

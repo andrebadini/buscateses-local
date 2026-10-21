@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Solução de problemas
+    url: https://github.com/andrebadini/buscateses-local/blob/main/docs/SOLUCAO-DE-PROBLEMAS.md
+    about: Confira as causas e soluções mais comuns antes de abrir uma issue.
+  - name: Usar com assistentes de IA (MCP)
+    url: https://github.com/andrebadini/buscateses-local/blob/main/docs/MCP.md
+    about: Configuração por cliente, ferramentas, modo HTTP e acesso remoto.
+  - name: Instalação e atualização
+    url: https://github.com/andrebadini/buscateses-local/blob/main/docs/INSTALACAO.md
+    about: Passo a passo por sistema, avisos do Gatekeeper e do SmartScreen.
+  - name: Relatar uma vulnerabilidade
+    url: https://github.com/andrebadini/buscateses-local/security/advisories/new
+    about: Use o canal privado para falhas de segurança. Não abra uma issue pública.

@@ -1,0 +1,65 @@
+name: Tirar uma dúvida
+description: Pergunte como usar o BuscaTeses ou como configurar um assistente de IA.
+title: "[Dúvida]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Antes de perguntar, veja a [Solução de problemas](https://github.com/andrebadini/buscateses-local/blob/main/docs/SOLUCAO-DE-PROBLEMAS.md)
+        e o guia de [MCP](https://github.com/andrebadini/buscateses-local/blob/main/docs/MCP.md).
+
+        **Não cole dados pessoais**, tokens do MCP, chaves de API ou conteúdo da sua biblioteca.
+
+  - type: textarea
+    id: duvida
+    attributes:
+      label: Qual é a sua dúvida?
+    validations:
+      required: true
+
+  - type: textarea
+    id: tentativas
+    attributes:
+      label: O que você já tentou?
+      description: Inclua os passos e as mensagens que apareceram.
+    validations:
+      required: true
+
+  - type: textarea
+    id: contexto
+    attributes:
+      label: Contexto
+      description: O que você quer fazer? Qual assistente de IA, sistema e versão está usando?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: sistema
+    attributes:
+      label: Sistema operacional
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - Outro
+    validations:
+      required: true
+
+  - type: input
+    id: versao
+    attributes:
+      label: Versão do BuscaTeses
+      placeholder: "1.0.0"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmacoes
+    attributes:
+      label: Confirmações
+      options:
+        - label: Consultei a documentação e procurei dúvidas parecidas nas issues.
+          required: true
+        - label: Não incluí dados pessoais, tokens ou conteúdo da minha biblioteca.
+          required: true

@@ -1,0 +1,15 @@
+# Dependências do pipeline do dataset BuscaTeses.
+# Espelha o extra "dataset" do pyproject.toml; use uma das opções:
+#   uv pip install -p .venv/bin/python -r tools/dataset/requirements.txt
+#   uv pip install -p .venv/bin/python -e ".[dataset]"
+pyarrow>=15,<30
+duckdb>=1.0,<2
+numpy>=1.26,<3
+requests>=2.31,<3
+tokenizers>=0.15,<1
+huggingface_hub>=0.24,<3
+tqdm>=4.66,<5
+
+# Backend local de embeddings (opcional; baixa ~1,2 GB de modelo na primeira execução).
+# sentence-transformers>=3.0
+# torch>=2.2
