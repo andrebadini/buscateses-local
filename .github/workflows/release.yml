@@ -108,7 +108,7 @@ jobs:
       - name: Gerar instalador e rodar o teste de fumaça
         run: python packaging/build.py --skip-deps
       - name: Publicar artefatos do build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: buscateses-${{ matrix.os }}-${{ matrix.arch }}
           path: |

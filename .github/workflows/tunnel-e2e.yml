@@ -34,7 +34,7 @@ jobs:
         run: python tests/e2e/tunnel_smoke.py
       - name: Guardar log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tunnel-e2e-${{ matrix.os }}
           path: tunnel-e2e-logs/
