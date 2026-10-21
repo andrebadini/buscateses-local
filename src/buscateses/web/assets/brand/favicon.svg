@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="t">
+  <title id="t">BuscaTeses</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#15665E"/><stop offset="1" stop-color="#0A3B37"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="122" y="128" width="290" height="196" rx="18" fill="#7FB5AD" transform="rotate(-8 267 226)"/>
+  <g transform="rotate(2 250 268)">
+    <rect x="86" y="160" width="318" height="216" rx="18" fill="#F6F7F5"/>
+    <rect x="120" y="196" width="138" height="18" rx="9" fill="#0E4F4A"/>
+    <rect x="86" y="232" width="318" height="5" fill="#C99A2E"/>
+    <rect x="120" y="258" width="200" height="11" rx="5.5" fill="#A3B1AD"/>
+    <rect x="120" y="284" width="150" height="11" rx="5.5" fill="#A3B1AD"/>
+    <circle cx="245" cy="344" r="14" fill="#0A3B37"/>
+  </g>
+  <circle cx="352" cy="306" r="60" fill="#0E4F4A" fill-opacity="0.14" stroke="#E2B547" stroke-width="24"/>
+  <line x1="396" y1="350" x2="438" y2="392" stroke="#E2B547" stroke-width="30" stroke-linecap="round"/>
+</svg>

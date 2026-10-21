@@ -1,0 +1,106 @@
+name: Relatar um problema
+description: Algo não funcionou como esperado no BuscaTeses.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por ajudar a melhorar o BuscaTeses!
+
+        **Não cole dados pessoais**: conteúdo da sua biblioteca, termos de busca privados, caminhos com seu nome de
+        usuário, tokens do MCP ou chaves de API. Se precisar mostrar um trecho de configuração, apague `api_key` e
+        `mcp_http.token`.
+
+        Antes de continuar, consulte [Solução de problemas](https://github.com/andrebadini/buscateses-local/blob/main/docs/SOLUCAO-DE-PROBLEMAS.md).
+
+  - type: dropdown
+    id: sistema
+    attributes:
+      label: Sistema operacional
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows 10 ou 11
+        - Linux
+        - Outro (descreva abaixo)
+    validations:
+      required: true
+
+  - type: input
+    id: versao
+    attributes:
+      label: Versão do BuscaTeses
+      description: Aparece em **Sobre** na interface ou em `buscateses --version`. No macOS/Windows, use `buscateses-cli --version`.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: instalacao
+    attributes:
+      label: Como você instalou?
+      options:
+        - Instalador oficial (.dmg, .exe ou .tar.gz)
+        - Pelo código-fonte (scripts/install.sh ou install.ps1)
+        - Outro
+    validations:
+      required: true
+
+  - type: textarea
+    id: descricao
+    attributes:
+      label: O que aconteceu?
+      description: Descreva o problema e a mensagem de erro exata, se houver.
+    validations:
+      required: true
+
+  - type: textarea
+    id: passos
+    attributes:
+      label: Passos para reproduzir
+      placeholder: |
+        1. Abra o app
+        2. Vá em ...
+        3. Clique em ...
+        4. O erro aparece
+    validations:
+      required: true
+
+  - type: textarea
+    id: esperado
+    attributes:
+      label: O que você esperava que acontecesse?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Trecho do log (opcional)
+      description: |
+        Últimas linhas de `logs/buscateses.log`, na pasta de dados. Apague caminhos pessoais e termos de busca antes
+        de colar.
+      render: text
+    validations:
+      required: false
+
+  - type: input
+    id: diagnostico
+    attributes:
+      label: Diagnóstico (opcional)
+      description: Resultado de `buscateses status --json` (ou `buscateses-cli status --json`). Remova o caminho em `data_dir`, se quiser.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmacoes
+    attributes:
+      label: Confirmações
+      options:
+        - label: Procurei o problema na documentação e nas issues existentes.
+          required: true
+        - label: Estou usando a versão mais recente publicada.
+          required: true
+        - label: Não incluí dados pessoais, tokens ou conteúdo da minha biblioteca.
+          required: true

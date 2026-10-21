@@ -1,0 +1,42 @@
+name: Teste do endereço público
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tunnel:
+    name: Túnel real (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Testar o endereço público
+        timeout-minutes: 15
+        env:
+          PYTHONUNBUFFERED: "1"
+          TUNNEL_SMOKE_REPORT: ${{ github.workspace }}/tunnel-e2e-logs
+        run: python tests/e2e/tunnel_smoke.py
+      - name: Guardar log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tunnel-e2e-${{ matrix.os }}
+          path: tunnel-e2e-logs/
+          if-no-files-found: warn
+          retention-days: 7

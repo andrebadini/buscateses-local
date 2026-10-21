@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Testes Python (${{ matrix.os }}, ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,dataset]"
+      - name: Testes
+        run: python -m pytest -q -m "not slow"
+      - name: Ruff
+        run: python -m ruff check src tests packaging
+
+  e2e-gate:
+    name: Verificar testes de interface
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.package.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar se existe package.json
+        id: package
+        run: |
+          if [ -f package.json ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  e2e:
+    name: Testes de interface (Playwright)
+    needs: e2e-gate
+    if: needs.e2e-gate.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Preparar ambiente Python
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -e ".[dev,dataset]"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Instalar dependências Node
+        run: npm ci
+      - name: Instalar Chromium do Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Executar testes e2e
+        run: npm run test:e2e
+      - name: Guardar relatório em caso de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
