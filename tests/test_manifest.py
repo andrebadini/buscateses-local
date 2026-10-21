@@ -28,6 +28,21 @@ def test_load_manifest(dataset) -> None:
     assert manifest.version == dataset.version
 
 
+def test_ignores_unknown_manifest_keys(dataset) -> None:
+    payload = _valid(dataset)
+    payload["sources"] = [
+        {
+            "name": "BDTD (IBICT)",
+            "url": "https://bdtd.ibict.br/",
+            "records": 10,
+            "license_note": "Metadados públicos.",
+        }
+    ]
+    manifest = parse_manifest(payload)
+    assert manifest.records == dataset.manifest["records"]
+    assert manifest.version == dataset.version
+
+
 @pytest.mark.parametrize(
     "path",
     [

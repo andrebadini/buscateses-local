@@ -62,7 +62,7 @@ _MEMORY_MARKERS = (
     "hip out of memory",
     "backend error",
 )
-METADATA_READ_COLUMNS = ("id", "title", "abstract", "keywords")
+METADATA_READ_COLUMNS = ("id", "title", "abstract", "abstract_en", "keywords")
 
 
 def build_document_text(
@@ -75,7 +75,8 @@ def build_document_text(
     """Build and tokenizer-truncate the document text used for embeddings.
 
     The text follows SPEC §3.2: ``title: {title} | text: {text}``, where text
-    is the abstract when present and the keywords otherwise.  Title, abstract
+    is the abstract when present (Portuguese, else English) and the keywords
+    otherwise.  Title, abstract
     and keywords are truecased first, so the model sees readable text instead
     of the uppercase catalogue records.  If the encoded sequence exceeds
     *max_tokens* (special tokens included), the original string is cut at the
@@ -529,7 +530,16 @@ def process_unit(
         if len(ids) != end - start:
             raise RuntimeError(f"Unidade {unit}: esperadas {end - start} linhas, obtidas {len(ids)}")
         titles = table.column("title").to_pylist()
-        abstracts = table.column("abstract").to_pylist()
+        # Recent BDTD records sometimes carry only the English abstract; the
+        # model is multilingual, so it is a better body than the keywords.
+        abstracts = [
+            abstract or abstract_en
+            for abstract, abstract_en in zip(
+                table.column("abstract").to_pylist(),
+                table.column("abstract_en").to_pylist(),
+                strict=True,
+            )
+        ]
         keywords = table.column("keywords").to_pylist()
         texts = [
             build_document_text(title, abstract, keyword, tokenizer)

@@ -1248,6 +1248,7 @@ def _public_row(data: dict[str, Any]) -> dict[str, Any]:
         "knowledge_area": data.get("knowledge_area"),
         "keywords": data.get("keywords"),
         "url": data.get("url"),
+        "source": data.get("source"),
         "snippet": "",
         "score": 0.0,
         "matched_by": [],

@@ -9,12 +9,12 @@ Hugging Face dataset card (``README.md``).
 from __future__ import annotations
 
 import argparse
+import heapq
 import json
 import os
 import re
-import shutil
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -44,19 +44,58 @@ from common import (
 )
 
 LOGGER = setup_logging("finalize")
+# Versão mínima do app que lê este catálogo (o esquema não mudou desde a 1.0.0).
 APP_VERSION = "1.0.0"
 DATASET_REPO = "andrebadini/catalogo-teses-capes"
 APP_URL = "https://github.com/andrebadini/buscateses-local"
+
+#: Recent years are published from two additional public sources.
+CAPES_CATALOGUE_NAME = "Catálogo de Teses e Dissertações da CAPES"
+CAPES_CATALOGUE_URL = "https://catalogodeteses.capes.gov.br/catalogo-teses/"
+CAPES_CATALOGUE_LICENSE_NOTE = (
+    "Metadados públicos do Catálogo de Teses e Dissertações da CAPES; "
+    "consulte os termos de uso da fonte."
+)
+BDTD_NAME = "BDTD (IBICT)"
+BDTD_URL = "https://bdtd.ibict.br/"
+BDTD_LICENSE_NOTE = (
+    "Metadados públicos da Biblioteca Digital Brasileira de Teses e Dissertações "
+    "(IBICT) e das bibliotecas digitais participantes; consulte a licença de cada "
+    "repositório antes de reutilizar o texto completo."
+)
+CAPES_OPEN_DATA_LICENSE_NOTE = (
+    "Dados abertos da CAPES sob licença Creative Commons Atribuição (CC-BY); "
+    "atribuição à CAPES — Catálogo de Teses e Dissertações."
+)
+#: Target number of rows per published metadata (and aligned embedding) part.
+RELEASE_PART_ROWS = 250_000
 
 
 class MissingEmbeddingsError(RuntimeError):
     """Some metadata ids have no embedding and --allow-missing was not given."""
 
 
+def _directories(value: Path | Sequence[Path]) -> list[Path]:
+    """Accept one directory or a sequence of directories."""
+    if isinstance(value, (str, Path)):
+        return [Path(value)]
+    directories = [Path(item) for item in value]
+    if not directories:
+        raise ValueError("Informe ao menos um diretório")
+    return directories
+
+
 def _metadata_parts(metadata_dir: Path) -> list[Path]:
     parts = sorted(Path(metadata_dir).glob("*.parquet"))
     if not parts:
         raise FileNotFoundError(f"Nenhuma parte de metadados em {metadata_dir}")
+    return parts
+
+
+def _all_metadata_parts(metadata_dirs: Iterable[Path]) -> list[Path]:
+    parts = [path for directory in metadata_dirs for path in _metadata_parts(directory)]
+    if not parts:
+        raise FileNotFoundError("Nenhuma parte de metadados nos diretórios informados")
     return parts
 
 
@@ -71,9 +110,16 @@ def _embedding_units(emb_dir: Path) -> list[Path]:
     return units
 
 
-def _load_embeddings(emb_dir: Path) -> tuple[np.ndarray, dict[str, int]]:
+def _all_embedding_units(emb_dirs: Iterable[Path]) -> list[Path]:
+    units = [path for directory in emb_dirs for path in _embedding_units(directory)]
+    if not units:
+        raise FileNotFoundError("Nenhuma unidade de embeddings nos diretórios informados")
+    return units
+
+
+def _load_embeddings(emb_dir: Path | Sequence[Path]) -> tuple[np.ndarray, dict[str, int]]:
     """Load every unit into one float16 matrix plus an id → row index map."""
-    units = _embedding_units(emb_dir)
+    units = _all_embedding_units(_directories(emb_dir))
     total = sum(pq.ParquetFile(path).metadata.num_rows for path in units)
     matrix = np.empty((total, FULL_DIMS), dtype=np.float16)
     identifiers: list[str] = []
@@ -131,6 +177,162 @@ def _matryoshka_256(matrix: np.ndarray) -> np.ndarray:
     return normalized.astype(np.float16)
 
 
+def _sort_key(row: dict[str, Any]) -> tuple[int, str]:
+    """Sort metadata rows by ``(year, id)``; missing values sort first."""
+    year = row.get("year")
+    return (int(year) if year is not None else 0, str(row.get("id") or ""))
+
+
+def _iter_sorted_rows(path: Path) -> Iterator[dict[str, Any]]:
+    """Read one metadata part and yield its rows in ``(year, id)`` order."""
+    table = pq.read_table(path)
+    order = pc.sort_indices(
+        table, sort_keys=[("year", "ascending"), ("id", "ascending")]
+    )
+    yield from table.take(order).to_pylist()
+
+
+def _write_metadata_part(path: Path, rows: Sequence[dict[str, Any]]) -> None:
+    """Write one metadata part atomically with the public schema."""
+    table = pa.Table.from_pylist(list(rows), schema=METADATA_SCHEMA)
+    temporary = path.with_suffix(".parquet.tmp")
+    pq.write_table(table, temporary, compression="zstd", row_group_size=50_000)
+    os.replace(temporary, path)
+
+
+def _merge_metadata(
+    metadata_dirs: Sequence[Path],
+    out_dir: Path,
+) -> tuple[list[list[str]], list[int], Counter[str], dict[str, list[int]]]:
+    """Merge every metadata directory into aligned, globally sorted parts.
+
+    Returns the identifiers of each output part, all year values, the number
+    of records per source and the year range of each source.
+    """
+    parts = _all_metadata_parts(metadata_dirs)
+    for index, path in enumerate(parts):
+        schema = pq.ParquetFile(path).schema_arrow
+        if schema.names != METADATA_SCHEMA.names:
+            raise ValueError(f"{path.name}: schema de metadados inesperado")
+        if index >= 1000:
+            raise ValueError("Há mais de 1000 partes de metadados")
+
+    streams = [_iter_sorted_rows(path) for path in parts]
+    # A single directory keeps its part boundaries (and therefore the file
+    # numbering of its aligned embedding units).  Several directories are
+    # merged into globally sorted parts of at most RELEASE_PART_ROWS rows.
+    multi = len(metadata_dirs) > 1
+    row_groups: Iterable[Iterable[dict[str, Any]]] = (
+        (heapq.merge(*streams, key=_sort_key),)
+        if multi
+        else streams
+    )
+    identifiers_by_part: list[list[str]] = []
+    year_values: list[int] = []
+    source_counts: Counter[str] = Counter()
+    source_years: dict[str, list[int]] = {}
+    last_identifier: str | None = None
+    part_number = 0
+
+    for group in row_groups:
+        buffer: list[dict[str, Any]] = []
+        for row in group:
+            identifier = row.get("id")
+            if identifier is not None and identifier == last_identifier:
+                raise ValueError(f"Metadado duplicado para o id {identifier}")
+            last_identifier = identifier
+            buffer.append(row)
+            year = row.get("year")
+            if year is not None:
+                year_values.append(int(year))
+            source = str(row.get("source") or "")
+            source_counts[source] += 1
+            if year is not None:
+                bounds = source_years.setdefault(source, [int(year), int(year)])
+                bounds[0] = min(bounds[0], int(year))
+                bounds[1] = max(bounds[1], int(year))
+            if multi and len(buffer) == RELEASE_PART_ROWS:
+                _flush_metadata_part(out_dir, part_number, buffer, identifiers_by_part)
+                part_number += 1
+                buffer = []
+        if buffer or not multi:
+            _flush_metadata_part(out_dir, part_number, buffer, identifiers_by_part)
+            part_number += 1
+
+    if not year_values:
+        raise ValueError("Não foi possível determinar o intervalo de anos")
+    return identifiers_by_part, year_values, source_counts, source_years
+
+
+def _flush_metadata_part(
+    out_dir: Path,
+    part_number: int,
+    rows: list[dict[str, Any]],
+    identifiers_by_part: list[list[str]],
+) -> None:
+    path = out_dir / "metadata" / f"part-{part_number:03d}.parquet"
+    _write_metadata_part(path, rows)
+    identifiers_by_part.append([str(row.get("id")) for row in rows])
+
+
+def _manifest_sources(
+    source_counts: Counter[str], source_years: dict[str, list[int]]
+) -> list[dict[str, Any]]:
+    """Describe each data source for the manifest."""
+    recent_sources = {"bdtd", "capes-catalogo"}
+    entries: list[dict[str, Any]] = []
+    open_data = sum(
+        count for source, count in source_counts.items() if source not in recent_sources
+    )
+    if open_data:
+        entries.append(
+            {
+                "name": SOURCE_NAME,
+                "url": SOURCE_URL,
+                "records": open_data,
+                "license_note": CAPES_OPEN_DATA_LICENSE_NOTE,
+            }
+        )
+    if source_counts.get("capes-catalogo"):
+        entries.append(
+            {
+                "name": CAPES_CATALOGUE_NAME,
+                "url": CAPES_CATALOGUE_URL,
+                "records": source_counts["capes-catalogo"],
+                "license_note": CAPES_CATALOGUE_LICENSE_NOTE,
+            }
+        )
+    if source_counts.get("bdtd"):
+        entries.append(
+            {
+                "name": BDTD_NAME,
+                "url": BDTD_URL,
+                "records": source_counts["bdtd"],
+                "license_note": BDTD_LICENSE_NOTE,
+            }
+        )
+    if not entries:
+        entries.append(
+            {
+                "name": SOURCE_NAME,
+                "url": SOURCE_URL,
+                "records": sum(source_counts.values()),
+                "license_note": CAPES_OPEN_DATA_LICENSE_NOTE,
+            }
+        )
+    return entries
+
+
+def _recent_start_year(source_years: dict[str, list[int]]) -> int | None:
+    """Return the first year that came from a recent source, if any."""
+    years = [
+        bounds[0]
+        for source, bounds in source_years.items()
+        if source in {"bdtd", "capes-catalogo"} and bounds
+    ]
+    return min(years) if years else None
+
+
 def _size_category(records: int) -> str:
     if records < 1_000:
         return "n<1K"
@@ -159,6 +361,8 @@ def _render_dataset_card(
     records: int,
     years: Sequence[int],
     decade_counts: Counter[int],
+    sources: Sequence[dict[str, Any]] | None = None,
+    recent_start: int | None = None,
 ) -> str:
     """Render the Hugging Face dataset card (pt-BR body, English summary)."""
     start_year, end_year = min(years), max(years)
@@ -168,12 +372,102 @@ def _render_dataset_card(
         for decade, count in sorted(decade_counts.items())
     )
     package_list = "\n".join(f"- <{url}>" for url in PACKAGE_URLS.values())
+    recent = recent_start is not None
+    pretty_name = (
+        "Catálogo de Teses e Dissertações (CAPES e BDTD)"
+        if recent
+        else "Catálogo de Teses e Dissertações da CAPES"
+    )
+    if recent:
+        summary = (
+            f"This dataset contains {_format_number_en(records)} records from Brazilian "
+            f"theses and dissertations catalogues ({start_year}–{end_year}). Records up to "
+            f"{recent_start - 1} come from the CAPES open-data packages, published by CAPES "
+            f"under CC-BY. Records from {recent_start} onward come from the CAPES catalogue "
+            f"and the BDTD (IBICT); coverage of the current year is partial and grows as new "
+            f"defences are registered. Titles, abstracts and keywords were truecased "
+            f"(sentence case, with acronyms and proper names preserved) before embedding, "
+            f"using a lexicon derived from the catalogue itself; the published metadata "
+            f"keeps the original source text unchanged. It powers the fully local search "
+            f"application [BuscaTeses]({APP_URL}). Release {version}."
+        )
+        recent_origin = (
+            f"\nOs trabalhos de {recent_start} em diante vêm de duas fontes públicas "
+            f"consultadas por API:\n\n"
+            f"- <{CAPES_CATALOGUE_URL}> — Catálogo de Teses e Dissertações da CAPES "
+            f"(resultados parciais no ano corrente), com resumo, palavras-chave e orientação "
+            f"completados pela página pública de cada trabalho na Plataforma Sucupira;\n"
+            f"- <{BDTD_URL}> — Biblioteca Digital Brasileira de Teses e Dissertações, "
+            f"mantida pelo IBICT e pelas bibliotecas digitais participantes.\n"
+        )
+        recent_license = (
+            f"\n\nOs metadados de {recent_start} em diante vêm do Catálogo de Teses "
+            "da CAPES e da BDTD. O texto completo e eventuais licenças adicionais de "
+            "cada trabalho permanecem nos repositórios de origem."
+        )
+        recent_limitation = (
+            f"\n- A cobertura de {recent_start} em diante é parcial: o catálogo da CAPES e a "
+            "BDTD recebem registros ao longo do ano."
+        )
+        recent_citation = f"""
+
+**Citação recomendada da fonte (BDTD):**
+
+```bibtex
+@misc{{bdtd_ibict,
+  author       = {{IBICT}},
+  title        = {{Biblioteca Digital Brasileira de Teses e Dissertações}},
+  howpublished = {{\\url{{{BDTD_URL}}}}},
+  note         = {{Metadados públicos; consulte a licença de cada repositório.}}
+}}
+```
+"""
+        recent_link = f"\n- BDTD (IBICT): <{BDTD_URL}>"
+        generation_intro = (
+            "1. Coleta dos CSVs públicos da CAPES (delimitador `;`, codificação "
+            "cp1252/latin-1) para 1987–2024.\n"
+            f"2. Coleta, por API, dos anos de {recent_start} em diante no Catálogo de "
+            "Teses da CAPES e na BDTD (IBICT), com paginação retomável e ritmo "
+            "limitado de requisições; resumo, palavras-chave e orientação dos "
+            "registros da CAPES vêm da página pública de cada trabalho na "
+            "Plataforma Sucupira."
+        )
+    else:
+        summary = (
+            f"This dataset contains {_format_number_en(records)} records from the "
+            f"Brazilian CAPES theses and dissertations catalogue ({start_year}–{end_year}), "
+            f"published by CAPES under CC-BY, together with 768-dimensional "
+            f"EmbeddingGemma vectors and their Matryoshka 256-dimensional projections. "
+            f"Titles, abstracts and keywords were truecased (sentence case, with acronyms "
+            f"and proper names preserved) before embedding, using a lexicon derived from "
+            f"the catalogue itself; the published metadata keeps the original CAPES text "
+            f"unchanged. It powers the fully local search application "
+            f"[BuscaTeses]({APP_URL}). Release {version}."
+        )
+        recent_origin = ""
+        recent_license = ""
+        recent_limitation = ""
+        recent_citation = ""
+        recent_link = ""
+        generation_intro = (
+            "1. Coleta dos CSVs públicos da CAPES (delimitador `;`, codificação "
+            "cp1252/latin-1)."
+        )
+    source_table = ""
+    if sources:
+        rows = "\n".join(
+            f"| {item['name']} | {_format_number(int(item['records']))} |"
+            for item in sources
+        )
+        source_table = (
+            "\n| Fonte | Registros |\n|---|---:|\n" + rows + "\n"
+        )
     return f"""---
 license: cc-by-4.0
 language:
 - pt
 - en
-pretty_name: Catálogo de Teses e Dissertações da CAPES
+pretty_name: {pretty_name}
 size_categories:
 - {_size_category(records)}
 task_categories:
@@ -203,35 +497,28 @@ configs:
     path: embeddings-768/*.parquet
 ---
 
-# Catálogo de Teses e Dissertações da CAPES
+# {pretty_name}
 
-**English summary.** This dataset contains {_format_number_en(records)} records from the
-Brazilian CAPES theses and dissertations catalogue ({start_year}–{end_year}), published by
-CAPES under CC-BY, together with 768-dimensional EmbeddingGemma vectors and their
-Matryoshka 256-dimensional projections. Titles, abstracts and keywords were truecased
-(sentence case, with acronyms and proper names preserved) before embedding, using a
-lexicon derived from the catalogue itself; the published metadata keeps the original
-CAPES text unchanged. It powers the fully local search application
-[BuscaTeses]({APP_URL}). Release {version}.
+**English summary.** {summary}
 
 ## Origem
 
-Os metadados vêm do Portal de Dados Abertos da CAPES ({SOURCE_URL}) e foram coletados
-dos seguintes pacotes:
+Os metadados de 1987 a 2024 vêm do Portal de Dados Abertos da CAPES ({SOURCE_URL}) e
+foram coletados dos seguintes pacotes:
 
 {package_list}
-
+{recent_origin}{source_table}
 ## Licença e atribuição
 
 Os dados originais são publicados pela CAPES sob a licença Creative Commons
 Atribuição (CC-BY). Este dataset derivado é distribuído sob a mesma licença.
 Ao reutilizar o material, atribua a fonte: "CAPES — Catálogo de Teses e
-Dissertações, Portal de Dados Abertos".
+Dissertações, Portal de Dados Abertos".{recent_license}
 
 ## Aviso de não afiliação
 
 Este é um projeto independente. Não há afiliação, endosso ou vínculo oficial com a
-CAPES, com o Google (modelo EmbeddingGemma) ou com o Hugging Face.
+CAPES, com o IBICT, com o Google (modelo EmbeddingGemma) ou com o Hugging Face.
 
 ## Conteúdo
 
@@ -268,7 +555,7 @@ mesma ordem e o mesmo particionamento; a linha *i* de uma parte de embedding cor
 | `pages` | int32 | Número de páginas (0 quando a CAPES não informa). |
 | `library` | string | Biblioteca depositária. |
 | `url` | string | URL http/https do texto completo, quando disponível. |
-| `source` | string | Nome do arquivo CSV de origem. |
+| `source` | string | Origem do registro (`dados abertos da CAPES`, `capes-catalogo` ou `bdtd`). |
 
 ### Contagem por década
 
@@ -278,21 +565,25 @@ mesma ordem e o mesmo particionamento; a linha *i* de uma parte de embedding cor
 
 ## Como foi gerado
 
-1. Coleta dos CSVs públicos da CAPES (delimitador `;`, codificação cp1252/latin-1).
-2. Normalização por nome de coluna nos dois esquemas (1987–2012 e 2013+), com remoção
+{generation_intro}
+3. Normalização por nome de coluna nos dois esquemas (1987–2012 e 2013+), com remoção
    de campos pessoais e deduplicação por `id`. Os metadados publicados preservam o
-   texto original da CAPES, inclusive a caixa alta e a grafia sem acentos.
-3. Normalização de caixa (truecasing) **antes do embedding**: título, resumo e
+   texto original da fonte, inclusive a caixa alta e a grafia sem acentos.
+4. Deduplicação entre fontes: o mesmo trabalho pode aparecer no catálogo da CAPES e na
+   BDTD; nesse caso prevalece o registro do catálogo da CAPES, completado com os campos
+   ausentes vindos da BDTD. Duplicatas entre redes da BDTD são unificadas.
+5. Normalização de caixa (truecasing) **antes do embedding**: título, resumo e
    palavras-chave passam pelo módulo `buscateses.textcase`, usando um léxico de siglas,
    nomes próprios e acentos derivado dos próprios metadados da CAPES. Isso deixa o texto
    legível para o modelo sem alterar os metadados publicados.
-4. Geração de embeddings com `{EMBEDDING_MODEL}` (via
+6. Geração de embeddings com `{EMBEDDING_MODEL}` (via
    `{ONNX_REPO}`, revisão `{EMBEDDING_REVISION}`), 768 dimensões normalizadas em L2.
    Texto do documento: `{DOCUMENT_TEMPLATE}`, truncado pelo tokenizador em até 512
    tokens (tokens especiais incluídos).
-5. Projeção Matryoshka: os primeiros 256 valores de cada vetor são re-normalizados em L2
+7. Projeção Matryoshka: os primeiros 256 valores de cada vetor são re-normalizados em L2
    e gravados como `float16` em `embeddings-256/`.
-6. Manifesto com contagens, anos, hashes SHA-256 e vetor de sonda para validar o modelo.
+8. Manifesto com contagens, anos, fontes, hashes SHA-256 e vetor de sonda para validar
+   o modelo.
 
 ## Uso no aplicativo BuscaTeses
 
@@ -354,7 +645,7 @@ serem públicos no catálogo da CAPES.
   metadados publicados preservam o texto original da CAPES.
 - O número de páginas pode ser 0 ou estar ausente quando não informado.
 - A URL do texto completo nem sempre existe ou pode ter deixado de responder.
-- A cobertura e a data de atualização variam por ano e por pacote da CAPES.
+- A cobertura e a data de atualização variam por ano e por fonte.{recent_limitation}
 
 ## Citação
 
@@ -382,12 +673,11 @@ Se este dataset for útil ao seu trabalho, cite o dataset derivado e a fonte ori
 ```
 
 CAPES. **Catálogo de Teses e Dissertações**. Portal de Dados Abertos da CAPES.
-Disponível em: <{SOURCE_URL}>.
-
+Disponível em: <{SOURCE_URL}>.{recent_citation}
 ## Links
 
 - Aplicativo BuscaTeses: <{APP_URL}>
-- Portal de Dados Abertos da CAPES: <{SOURCE_URL}>
+- Portal de Dados Abertos da CAPES: <{SOURCE_URL}>{recent_link}
 """
 
 
@@ -439,8 +729,8 @@ def _manifest_files(out_dir: Path) -> list[dict[str, Any]]:
 
 
 def finalize_release(
-    metadata_dir: Path,
-    emb_dir: Path,
+    metadata_dir: Path | Sequence[Path],
+    emb_dir: Path | Sequence[Path],
     out_dir: Path,
     version: str,
     *,
@@ -454,11 +744,16 @@ def finalize_release(
     probe_batch: int = 32,
     probe_concurrency: int = 3,
 ) -> dict[str, Any]:
-    """Build a release directory and return its manifest."""
-    metadata_dir = Path(metadata_dir)
-    emb_dir = Path(emb_dir)
+    """Build a release directory and return its manifest.
+
+    *metadata_dir* and *emb_dir* may be a single directory or a sequence of
+    directories.  Metadata from every directory is merged and re-sorted by
+    ``(year, id)`` before being split into aligned output parts.
+    """
+    metadata_dirs = _directories(metadata_dir)
+    emb_dirs = _directories(emb_dir)
     out_dir = Path(out_dir)
-    parts = _metadata_parts(metadata_dir)
+    parts = _all_metadata_parts(metadata_dirs)
 
     for index, path in enumerate(parts):
         schema = pq.ParquetFile(path).schema_arrow
@@ -467,34 +762,21 @@ def finalize_release(
         if index >= 1000:
             raise ValueError("Há mais de 1000 partes de metadados")
 
-    embeddings, index_by_id = _load_embeddings(emb_dir)
+    embeddings, index_by_id = _load_embeddings(emb_dirs)
     LOGGER.info(
         "Carregados %d embeddings de %d unidade(s)",
         len(index_by_id),
-        len(_embedding_units(emb_dir)),
+        len(_all_embedding_units(emb_dirs)),
     )
 
-    identifiers_by_part: list[list[str]] = []
-    years: list[int] = []
     missing = 0
     for path in parts:
-        table = pq.read_table(path, columns=["id", "year"])
-        identifiers = table.column("id").to_pylist()
-        identifiers_by_part.append(identifiers)
-        if len(table.column("year")):
-            stats = pc.min_max(table.column("year"))
-            minimum = stats["min"].as_py()
-            if minimum is not None:
-                years.extend([minimum, stats["max"].as_py()])
+        identifiers = pq.read_table(path, columns=["id"]).column("id").to_pylist()
         missing += sum(1 for identifier in identifiers if identifier not in index_by_id)
     if missing and not allow_missing:
         raise MissingEmbeddingsError(
             f"{missing} registro(s) de metadados sem embedding; use --allow-missing para publicar"
         )
-    if not years:
-        raise ValueError("Não foi possível determinar o intervalo de anos")
-    min_year, max_year = min(years), max(years)
-    records = sum(len(identifiers) for identifiers in identifiers_by_part)
 
     if out_dir.exists() and (out_dir / "manifest.json").exists():
         raise FileExistsError(
@@ -505,15 +787,13 @@ def finalize_release(
     for stale in out_dir.glob("*/*.parquet"):
         stale.unlink()
 
-    year_values: list[int] = []
-    for index, (source, identifiers) in enumerate(zip(parts, identifiers_by_part, strict=True)):
-        destination = out_dir / "metadata" / f"part-{index:03d}.parquet"
-        shutil.copy2(source, destination)
+    identifiers_by_part, year_values, source_counts, source_years = _merge_metadata(
+        metadata_dirs, out_dir
+    )
+    min_year, max_year = min(year_values), max(year_values)
+    records = sum(len(identifiers) for identifiers in identifiers_by_part)
 
-        year_column = pq.read_table(source, columns=["year"]).column("year")
-        if len(year_column):
-            year_values.extend(value for value in year_column.to_pylist() if value is not None)
-
+    for index, identifiers in enumerate(identifiers_by_part):
         indices = np.fromiter(
             (index_by_id.get(identifier, -1) for identifier in identifiers),
             dtype=np.int64,
@@ -531,6 +811,8 @@ def finalize_release(
         )
 
     decade_counts = Counter((year // 10) * 10 for year in year_values)
+    sources = _manifest_sources(source_counts, source_years)
+    recent_start = _recent_start_year(source_years)
 
     if probe_vector is None:
         probe_vector = compute_probe(
@@ -558,6 +840,7 @@ def finalize_release(
             "url": SOURCE_URL,
             "license": SOURCE_LICENSE,
         },
+        "sources": sources,
         "embedding": {
             "model": EMBEDDING_MODEL,
             "onnx_repo": ONNX_REPO,
@@ -573,7 +856,14 @@ def finalize_release(
     if allow_missing:
         manifest["missing_embeddings"] = missing
 
-    readme = _render_dataset_card(version, records, year_values, decade_counts)
+    readme = _render_dataset_card(
+        version,
+        records,
+        year_values,
+        decade_counts,
+        sources=sources,
+        recent_start=recent_start,
+    )
     (out_dir / "README.md").write_text(readme, encoding="utf-8")
     (out_dir / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -591,8 +881,20 @@ def finalize_release(
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(description="Monta a release pública do dataset")
-    parser.add_argument("--metadata", type=Path, required=True)
-    parser.add_argument("--emb", type=Path, required=True)
+    parser.add_argument(
+        "--metadata",
+        type=Path,
+        action="append",
+        required=True,
+        help="diretório de metadados; repita para combinar mais de um",
+    )
+    parser.add_argument(
+        "--emb",
+        type=Path,
+        action="append",
+        required=True,
+        help="diretório de embeddings; repita para combinar mais de um",
+    )
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--allow-missing", action="store_true")

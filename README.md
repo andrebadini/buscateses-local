@@ -15,10 +15,10 @@
 <p align="center"><b>Português</b> · <a href="README.en.md">English</a></p>
 
 O **BuscaTeses** é um aplicativo gratuito e de código aberto para pesquisar, no seu próprio computador,
-**1.670.528 teses e dissertações** defendidas no Brasil entre **1987 e 2024**, a partir do Catálogo de Teses e
-Dissertações da CAPES. Ele entende o *sentido* da sua pergunta, não só as palavras, pesquisa também nos **seus
-próprios livros e artigos** e conversa com assistentes de IA como **Claude, Codex, Cursor e Gemini** por meio
-do protocolo MCP.
+**1.728.035 teses e dissertações** defendidas no Brasil entre **1987 e 2026**, a partir do Catálogo de Teses e
+Dissertações da CAPES e, nos anos mais recentes, também da BDTD (IBICT). Ele entende o *sentido* da sua pergunta, não
+só as palavras, pesquisa também nos **seus próprios livros e artigos** e conversa com assistentes de IA como
+**Claude, Codex, Cursor e Gemini** por meio do protocolo MCP.
 
 <p align="center">
   <img src="docs/assets/screenshots/busca.png" alt="Tela de resultados do BuscaTeses mostrando fichas de teses com filtros por ano, nível, estado e área" width="900">
@@ -63,7 +63,7 @@ do protocolo MCP.
 | Linux (x86_64) | [BuscaTeses-linux-x86_64.tar.gz](https://github.com/andrebadini/buscateses-local/releases/latest/download/BuscaTeses-linux-x86_64.tar.gz) | janela nativa ou navegador |
 
 **Você vai precisar de:** cerca de **12 GB livres** em disco, 8 GB de memória RAM (recomendado) e internet na
-primeira vez, para baixar o catálogo (~2,8 GB) e o modelo de embedding (~330 MB). Depois, a conexão só é usada para
+primeira vez, para baixar o catálogo (~2,9 GB) e o modelo de embedding (~330 MB). Depois, a conexão só é usada para
 verificar atualizações (opcional) e, se você ativar, carregar o VLibras.
 
 <details>
@@ -92,13 +92,13 @@ Ao abrir o BuscaTeses pela primeira vez, a tela **Primeiros passos** cuida de tu
 
 1. **Baixa o modelo de embedding** que transforma textos em vetores para a busca por significado (~330 MB). Ele roda
    no seu computador.
-2. **Baixa e organiza o catálogo** de teses (~2,8 GB). Leva de 10 a 40 minutos, conforme a internet e o computador.
+2. **Baixa e organiza o catálogo** de teses (~2,9 GB). Leva de 10 a 40 minutos, conforme a internet e o computador.
 3. **Conecta seus assistentes de IA** (opcional), com um clique por assistente.
 
 Depois disso, o BuscaTeses funciona sem internet. A conexão é usada apenas para baixar o modelo e o catálogo, verificar
 atualizações (opcional; pode ser desligada em **Configurações**) e, se você ativar, carregar o VLibras. Não há
-telemetria, conta ou envio das suas buscas e dos seus documentos. Quando a CAPES publicar dados novos, o app avisa e
-atualiza o catálogo com um clique.
+telemetria, conta ou envio das suas buscas e dos seus documentos. Quando uma nova versão do catálogo for publicada, o
+app avisa e atualiza os dados com um clique.
 
 ## Instalar com a ajuda de um assistente de IA
 
@@ -186,9 +186,9 @@ apagados automaticamente ao final. A pasta de dados fica em `~/Library/Applicati
 
 <details><summary><b>O BuscaTeses tem o texto completo das teses?</b></summary>
 
-Não. O catálogo da CAPES traz título, autoria, orientação, resumo, palavras-chave e outros metadados. Quando a CAPES
-informa um link para o texto completo, o botão **Texto completo** abre a página de origem. Você pode baixar o PDF e
-adicioná-lo à sua biblioteca para pesquisar dentro dele.
+Não. As fontes trazem título, autoria, orientação, resumo, palavras-chave e outros metadados. Quando a fonte informa um
+link para o texto completo, o botão **Texto completo** abre a página de origem. Você pode baixar o PDF e adicioná-lo à
+sua biblioteca para pesquisar dentro dele.
 </details>
 
 <details><summary><b>Funciona sem internet?</b></summary>
@@ -211,10 +211,17 @@ Mais respostas em [docs/SOLUCAO-DE-PROBLEMAS.md](docs/SOLUCAO-DE-PROBLEMAS.md).
 ## Os dados
 
 O catálogo vem dos [dados abertos da CAPES](https://dadosabertos.capes.gov.br) (Catálogo de Teses e Dissertações,
-licença Creative Commons Atribuição), normalizado e enriquecido com vetores semânticos. A versão pronta para uso está
-publicada como dataset aberto no Hugging Face: **[andrebadini/catalogo-teses-capes](https://huggingface.co/datasets/andrebadini/catalogo-teses-capes)**,
-que pode ser usado em outras pesquisas (pandas, DuckDB, `datasets`). Dados pessoais como CPF e identificadores internos
-foram removidos. Todo o processo é reprodutível com os scripts em [`tools/dataset`](tools/dataset).
+licença Creative Commons Atribuição) para 1987–2024 e de duas fontes públicas para os anos seguintes: o
+[Catálogo de Teses e Dissertações da CAPES](https://catalogodeteses.capes.gov.br/catalogo-teses/) e a
+[BDTD (IBICT)](https://bdtd.ibict.br/). Tudo é normalizado e enriquecido com vetores semânticos. A versão pronta para
+uso está publicada como dataset aberto no Hugging Face:
+**[andrebadini/catalogo-teses-capes](https://huggingface.co/datasets/andrebadini/catalogo-teses-capes)**, que pode ser
+usado em outras pesquisas (pandas, DuckDB, `datasets`). Dados pessoais como CPF e identificadores internos foram
+removidos. Todo o processo é reprodutível com os scripts em [`tools/dataset`](tools/dataset).
+
+> **Anos recentes:** 2025 (46.131 trabalhos) e 2026 (11.376, até outubro) ainda estão incompletos, porque a CAPES
+> consolida a coleta anual depois e a BDTD depende de cada instituição publicar no seu repositório. A cobertura cresce a
+> cada nova versão do catálogo, e o app avisa quando houver atualização. Detalhes em [docs/DADOS.md](docs/DADOS.md).
 
 ## Como funciona
 
@@ -249,7 +256,10 @@ Guia completo, convenções e como gerar instaladores: [CONTRIBUTING.md](CONTRIB
 ## Licença, créditos e aviso
 
 - Código: [MIT](LICENSE).
-- Dados: CAPES — Catálogo de Teses e Dissertações, [Creative Commons Atribuição](https://dadosabertos.capes.gov.br).
+- Dados de 1987–2024: CAPES — Catálogo de Teses e Dissertações,
+  [Creative Commons Atribuição](https://dadosabertos.capes.gov.br).
+- Dados de 2025 em diante: Catálogo de Teses da CAPES e [BDTD (IBICT)](https://bdtd.ibict.br/), com metadados públicos;
+  a licença do texto completo varia por repositório.
 - Modelo: [EmbeddingGemma](https://huggingface.co/google/embeddinggemma-300m), do Google, sujeito aos
   [Termos de Uso do Gemma](https://ai.google.dev/gemma/terms); versão ONNX de
   [onnx-community](https://huggingface.co/onnx-community/embeddinggemma-300m-ONNX).
@@ -258,6 +268,6 @@ Guia completo, convenções e como gerar instaladores: [CONTRIBUTING.md](CONTRIB
 
 Créditos completos em [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-O BuscaTeses é um projeto independente, **sem vínculo com a CAPES**, o Google ou qualquer instituição citada.
+O BuscaTeses é um projeto independente, **sem vínculo com a CAPES, o IBICT**, o Google ou qualquer instituição citada.
 
 Se o BuscaTeses ajudou na sua pesquisa, cite-o (veja [CITATION.cff](CITATION.cff)) e deixe uma ⭐ no repositório.

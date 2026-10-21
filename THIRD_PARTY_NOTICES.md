@@ -32,13 +32,19 @@ de Uso do Gemma.
 
 | Componente | Licença | Observação |
 | --- | --- | --- |
-| Catálogo de Teses e Dissertações da CAPES | Creative Commons Atribuição (CC-BY) | fonte: <https://dadosabertos.capes.gov.br> |
-| Dataset normalizado BuscaTeses | CC-BY (dados) | <https://huggingface.co/datasets/andrebadini/catalogo-teses-capes> |
+| Dados abertos da CAPES — Catálogo de Teses e Dissertações (1987–2024) | Creative Commons Atribuição (CC-BY) | fonte: <https://dadosabertos.capes.gov.br> |
+| Catálogo de Teses e Dissertações da CAPES (2025 em diante) | metadados públicos; consulte os termos da fonte | fonte: <https://catalogodeteses.capes.gov.br/catalogo-teses/> |
+| BDTD — Biblioteca Digital Brasileira de Teses e Dissertações (2025 em diante) | metadados públicos; a licença do texto completo varia por repositório | fonte: <https://bdtd.ibict.br/> |
+| Dataset normalizado BuscaTeses | CC-BY para os dados oriundos dos dados abertos da CAPES | <https://huggingface.co/datasets/andrebadini/catalogo-teses-capes> |
 
-A licença MIT do código não se aplica aos dados. Ao redistribuir ou publicar resultados, atribua a fonte:
+A licença MIT do código não se aplica aos dados. Ao redistribuir ou publicar resultados, atribua as fontes:
 
 > Fonte: CAPES — Catálogo de Teses e Dissertações, dados abertos sob licença Creative Commons Atribuição.
+> Fonte (2025 em diante): CAPES — Catálogo de Teses e Dissertações e BDTD/IBICT.
 > Dataset normalizado: BuscaTeses, <https://huggingface.co/datasets/andrebadini/catalogo-teses-capes>.
+
+Os metadados da BDTD são públicos e mantidos pelo IBICT e pelas bibliotecas digitais participantes. O BuscaTeses não
+redistribui o texto completo dos trabalhos e não tem vínculo com a CAPES ou o IBICT.
 
 ## VLibras
 

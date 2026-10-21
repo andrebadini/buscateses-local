@@ -669,7 +669,7 @@ function aboutCard(status) {
       {},
       "Versão ",
       status?.app?.version || "—",
-      ". Conheça as fontes dos dados, as licenças e o aviso de não afiliação à CAPES.",
+      ". Conheça as fontes dos dados, as licenças e o aviso de não afiliação à CAPES ou ao IBICT.",
     ),
     h(
       "div",

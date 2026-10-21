@@ -41,7 +41,7 @@ def test_status_without_catalog(client: TestClient) -> None:
     response = client.get("/api/status")
     assert response.status_code == 200
     payload = response.json()
-    assert payload["app"]["version"] == "1.0.0"
+    assert payload["app"]["version"] == "1.1.0"
     assert payload["catalog"]["installed"] is False
     assert payload["catalog"]["records"] == 0
     assert payload["model"]["ready"] is True

@@ -380,7 +380,13 @@ export async function renderSearch(outlet, ctx, urlParams) {
     search(searchState, { signal: ctx.signal }),
     loadFacets(),
     loadFavorites().catch(() => state.favorites),
+    loadStatus().catch(() => state.status),
   ]);
+  const catalogYears = state.status?.catalog?.years;
+  const yearBounds =
+    Array.isArray(catalogYears) && catalogYears.length === 2
+      ? { min: catalogYears[0], max: catalogYears[1] }
+      : {};
 
   const heading = h("h1", { class: "sr-only", id: "results-title" }, "Resultados da busca");
 
@@ -629,6 +635,7 @@ export async function renderSearch(outlet, ctx, urlParams) {
     searchState,
     resultFacets: firstResult.facets ?? {},
     globalFacets: globalFacets ?? {},
+    yearBounds,
     onChange: () => {
       updateUrl();
       runSearch();

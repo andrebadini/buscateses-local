@@ -39,9 +39,9 @@ from buscateses.library.store import LibraryError, LibraryStore
 from buscateses.warmup import start_warmup
 
 _CATALOG_INSTRUCTIONS = (
-    "BuscaTeses: busca no Catálogo de Teses e Dissertações da CAPES instalado "
-    "neste computador. Use search_theses para buscar trabalhos, similar_theses "
-    "para relacionados e get_thesis para detalhes."
+    "BuscaTeses: busca em teses e dissertações brasileiras (CAPES e BDTD) no "
+    "catálogo instalado neste computador. Use search_theses para buscar trabalhos, "
+    "similar_theses para relacionados e get_thesis para detalhes."
 )
 _LIBRARY_INSTRUCTIONS = (
     " Use as ferramentas da biblioteca para documentos próprios do usuário."
@@ -353,8 +353,8 @@ def create_server(
     @server.tool(
         name="search_theses",
         description=(
-            "Busca teses e dissertações no catálogo local da CAPES. Aceita filtros "
-            "de ano, grau, UF, instituição e grande área."
+            "Busca teses e dissertações brasileiras (CAPES e BDTD) no catálogo "
+            "local. Aceita filtros de ano, grau, UF, instituição e grande área."
         ),
         annotations=_READ_ONLY,
         structured_output=True,
@@ -370,7 +370,7 @@ def create_server(
         mode: str = "hybrid",
         limit: int = 20,
     ) -> SearchThesesOutput:
-        """Busca trabalhos no catálogo da CAPES e devolve os metadados principais."""
+        """Busca trabalhos no catálogo local e devolve os metadados principais."""
         query_text = _require_text(query)
         mode_value = _require_mode(mode)
         size = _bounded(limit, 1, 50, "O limite deve estar entre 1 e 50.")

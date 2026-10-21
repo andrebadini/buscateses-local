@@ -123,6 +123,13 @@ function metaRow(label, value) {
   return [h("dt", {}, label), h("dd", {}, String(value))];
 }
 
+/** Human-readable label for the record's origin (manifest source codes). */
+export function sourceLabel(source) {
+  if (source === "capes-catalogo") return "Catálogo de Teses da CAPES";
+  if (source === "bdtd") return "BDTD (IBICT)";
+  return "Dados abertos da CAPES";
+}
+
 function fichaPanel(item) {
   const pages =
     item.pages && Number(item.pages) > 0
@@ -147,6 +154,7 @@ function fichaPanel(item) {
     ...metaRow("Idioma", item.language),
     ...metaRow("Páginas", pages),
     ...metaRow("Biblioteca", item.library),
+    ...metaRow("Fonte dos dados", sourceLabel(item.source)),
   ];
   return h(
     "section",

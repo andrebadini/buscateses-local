@@ -282,3 +282,66 @@ def test_finalize_allow_missing_writes_zero_vectors(tmp_path: Path) -> None:
     restored = np.asarray(rows["a"], dtype=np.float32)
     assert np.allclose(restored[:256], 3.0, atol=1e-2)
     assert np.allclose(restored[256:], 0.0)
+
+
+def test_finalize_combines_directories_and_records_sources(tmp_path: Path) -> None:
+    historical = tmp_path / "metadata"
+    recent = tmp_path / "recent-metadata"
+    historical.mkdir()
+    recent.mkdir()
+    old_a = _metadata_row("a", 2001, source="dados_2001.csv")
+    old_b = _metadata_row("b", 2002, source="dados_2002.csv")
+    new_c = _metadata_row(
+        "capes-catalogo:9", 2024, source="capes-catalogo", title="Recente C"
+    )
+    new_d = _metadata_row("bdtd:7", 2025, source="bdtd", title="Recente D")
+    _write_metadata_part(historical / "part-000.parquet", [old_a, old_b])
+    # Recent part deliberately out of order to prove the global sort.
+    _write_metadata_part(recent / "part-007.parquet", [new_d, new_c])
+
+    embeddings_old = tmp_path / "emb-old"
+    embeddings_new = tmp_path / "emb-new"
+    embeddings_old.mkdir()
+    embeddings_new.mkdir()
+    vectors = _vectors()
+    _write_unit(embeddings_old / "unit-00000.parquet", ["a", "b"], np.stack([vectors["a"], vectors["b"]]))
+    _write_unit(
+        embeddings_new / "unit-00000.parquet",
+        ["capes-catalogo:9", "bdtd:7"],
+        np.stack([vectors["c"], vectors["d"]]),
+    )
+
+    out = tmp_path / "release"
+    manifest = finalize.finalize_release(
+        [historical, recent],
+        [embeddings_old, embeddings_new],
+        out,
+        "2026.10.21",
+        probe_vector=[0.0] * common.FULL_DIMS,
+    )
+
+    metadata_parts = sorted((out / "metadata").glob("part-*.parquet"))
+    emb_parts = sorted((out / "embeddings-768").glob("part-*.parquet"))
+    assert len(metadata_parts) == len(emb_parts) == 1
+    table = pq.read_table(metadata_parts[0])
+    assert table.column("id").to_pylist() == ["a", "b", "capes-catalogo:9", "bdtd:7"]
+    assert table.column("year").to_pylist() == [2001, 2002, 2024, 2025]
+    assert pq.read_table(emb_parts[0]).column("id").to_pylist() == [
+        "a",
+        "b",
+        "capes-catalogo:9",
+        "bdtd:7",
+    ]
+
+    sources = {item["name"]: item for item in manifest["sources"]}
+    assert sources[common.SOURCE_NAME]["records"] == 2
+    assert sources[finalize.CAPES_CATALOGUE_NAME]["records"] == 1
+    assert sources[finalize.BDTD_NAME]["records"] == 1
+    for item in manifest["sources"]:
+        assert set(item) == {"name", "url", "records", "license_note"}
+    assert manifest["source"]["license"] == "CC-BY"
+
+    readme = (out / "README.md").read_text(encoding="utf-8")
+    assert "BDTD (IBICT)" in readme
+    assert "cobertura de 2024 em diante" in readme
+    assert "Citação recomendada da fonte (BDTD)" in readme

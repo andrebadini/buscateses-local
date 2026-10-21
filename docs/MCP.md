@@ -2,7 +2,8 @@
 
 O **MCP** (Model Context Protocol) é um padrão aberto que permite a um assistente de IA usar ferramentas que rodam no
 seu computador. Com ele, o Claude, o Codex, o Cursor e outros assistentes que rodam neste computador podem consultar o
-catálogo da CAPES e a sua biblioteca pessoal e citar as fontes, sem enviar seus dados para a nuvem. Para assistentes na
+catálogo de teses e dissertações (CAPES e BDTD) e a sua biblioteca pessoal e citar as fontes, sem enviar seus dados
+para a nuvem. Para assistentes na
 web (ChatGPT e Claude.ai), veja [Acesso remoto](#acesso-remoto-chatgpt-e-claudeai).
 
 O servidor MCP do BuscaTeses é **somente leitura**: o assistente pode buscar e ler, mas não altera o catálogo nem a

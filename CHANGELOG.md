@@ -12,6 +12,23 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 - Integração opcional de OCR para PDFs digitalizados.
 - Melhorias contínuas de acessibilidade e cobertura de testes.
 
+## [1.1.0] - 2026-10-21
+
+### Adicionado
+
+- **Trabalhos de 2025 e 2026** no catálogo (versão de dados 2026.10.21.3), coletados da consulta pública do Catálogo
+  de Teses e Dissertações da CAPES, completada com a página pública de cada trabalho na Plataforma Sucupira, e da BDTD
+  (IBICT). Os dados abertos da CAPES continuam sendo a fonte de 1987 a 2024. São 57.507 trabalhos novos (46.131 de
+  2025 e 11.376 de 2026, ainda parciais), e o catálogo passa a ter 1.728.035 registros.
+- Campo **Fonte dos dados** na ficha de cada trabalho (dados abertos da CAPES, Catálogo da CAPES ou BDTD).
+- Scripts de coleta e normalização dos anos recentes (`harvest_recent.py`, `enrich_sucupira.py` e
+  `normalize_recent.py`), com cache retomável, conferência dos totais e remoção de duplicatas entre fontes.
+
+### Alterado
+
+- Os filtros de ano usam o período do catálogo instalado, em vez de 1987–2024 fixo.
+- A página **Sobre** e as descrições do MCP citam as três fontes e o aviso de não afiliação à CAPES e ao IBICT.
+
 ## [1.0.0] - 2026-10-21
 
 Primeira versão pública.
@@ -69,4 +86,5 @@ Primeira versão pública.
 - O macOS pode exibir o aviso do Gatekeeper e o Windows o aviso do SmartScreen na primeira abertura, porque os
   instaladores não usam certificados comerciais.
 
+[1.1.0]: https://github.com/andrebadini/buscateses-local/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/andrebadini/buscateses-local/releases/tag/v1.0.0

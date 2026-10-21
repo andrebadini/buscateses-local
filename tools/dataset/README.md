@@ -84,6 +84,100 @@ Use `--rows-per-part N` para mudar o tamanho das partes (padrão 250 000).
 Tempo esperado: 10–25 min. Pico de RAM: ~4 GB (DuckDB) + ~0,5 GB durante a
 conversão de um arquivo.
 
+## Trabalhos recentes (2025 em diante)
+
+Os pacotes de dados abertos da CAPES terminam em 2024. Os anos seguintes são
+coletados de duas fontes públicas, por API:
+
+- **Catálogo de Teses e Dissertações da CAPES**
+  (`https://catalogodeteses.capes.gov.br/catalogo-teses/rest/busca`) — retorna
+  20 registros por página, independentemente de `registrosPorPagina`;
+- **BDTD/IBICT** (`https://bdtd.ibict.br/vufind/api/v1/search`) — cada consulta
+  alcança no máximo 1.000 registros (páginas mais profundas repetem a última
+  janela). Anos maiores são divididos recursivamente pelo prefixo do
+  identificador (`id:U*`, `id:USP_*`...), até cada parte ter no máximo 1.000
+  registros. Os prefixos são disjuntos, e a soma das partes é conferida contra
+  o `resultCount` em cada nível; a coleta falha se não fechar.
+
+### Coleta (`harvest_recent.py`)
+
+```bash
+.venv/bin/python tools/dataset/harvest_recent.py \
+  --out tools/dataset/work/recent/raw \
+  --years 2025 2026
+```
+
+Sem `--years`, o coletor usa o ano seguinte ao último ano dos metadados
+(`--metadata tools/dataset/work/metadata`) até o ano corrente. Cada página é
+gravada em
+`raw/<fonte>/<ano>/<partição>/page-00001.json.gz` e a execução é retomável:
+páginas já baixadas são reaproveitadas. O coletor usa o User-Agent
+`BuscaTeses-dataset`, **0,5 requisição por segundo** por padrão (a BDTD
+responde 429 a rajadas mais rápidas) e até cinco tentativas com espera
+exponencial para 429/5xx/timeout. Cada consulta leva no máximo dois
+`filter[]` (o ano e **um** prefixo de identificador), porque a API também
+responde 429 quando recebe mais de uma restrição extra. O plano de
+partições fica em `raw/<fonte>/<ano>/_plan.json` e é reutilizado enquanto o
+total do ano não mudar, para que uma execução interrompida retome exatamente
+as mesmas partes. Ao final grava `raw/_sources_recent.json` com URL,
+parâmetros, total esperado e total coletado por fonte/ano/partição.
+
+Para um teste rápido, use `--max-pages N` e `--sources bdtd` (ou `capes`).
+
+### Detalhes da Plataforma Sucupira (`enrich_sucupira.py`)
+
+A busca do Catálogo da CAPES não traz resumo, palavras-chave nem orientação.
+Esses campos estão na página pública de cada trabalho na Plataforma Sucupira
+(`viewTrabalhoConclusao.jsf?id_trabalho=<id>`). O script visita cada página uma
+vez e guarda **apenas** os campos do esquema público (resumo, abstract,
+palavras-chave, idioma, biblioteca, área de concentração, linha de pesquisa,
+código do programa e orientação) em `raw/sucupira/<ano>/<id>.json.gz`. Nomes
+da banca, vínculos e descrições de projeto que aparecem na mesma página são
+ignorados e nunca gravados.
+
+```bash
+.venv/bin/python tools/dataset/enrich_sucupira.py \
+  --raw tools/dataset/work/recent/raw --rate 1
+```
+
+A execução é retomável. O `normalize_recent.py` usa esses detalhes quando
+existem e descarta valores de preenchimento como `xx`.
+
+### Normalização (`normalize_recent.py`)
+
+```bash
+.venv/bin/python tools/dataset/normalize_recent.py \
+  --raw tools/dataset/work/recent/raw \
+  --existing tools/dataset/work/metadata \
+  --out tools/dataset/work/recent/metadata
+```
+
+O script lê o raw e os metadados existentes e grava uma parte numerada depois
+da última existente (por exemplo, `work/recent/metadata/part-007.parquet`),
+com o mesmo esquema, compressão zstd e ordenação por `(year, id)`. Também grava
+`work/recent/normalize_recent_report.json`.
+
+Regras principais:
+
+- mantém apenas anos a partir do seguinte ao último metadado (ou `--first-year`);
+- BDTD: `id` vira `bdtd:<id>`, autores em `Sobrenome, Nome` são invertidos,
+  `dc.date.issued` define o ano e a data, e `Mestrado/Doutorado Profissional`
+  é detectado na citação;
+- CAPES: `id` vira `capes-catalogo:<id>`, com datas, grau, páginas e URL
+  normalizados;
+- instituição/sigla/UF/região e código/áreas do programa são preenchidos a
+  partir dos metadados históricos quando há correspondência exata de nome;
+- áreas CNPq da BDTD são traduzidas para os rótulos já usados no dataset;
+- descarta registros já publicados (mesmo `id` na URL da CAPES ou mesmo título
+  normalizado com ao menos um sobrenome de autoria em comum);
+- entre fontes, prefere o registro do Catálogo de Teses da CAPES e completa os
+  campos ausentes com a BDTD; entre redes da BDTD, mantém o mais completo.
+
+Depois da normalização, rode o `embed.py` também sobre
+`work/recent/metadata`, com um diretório de saída separado (por exemplo,
+`work/recent/emb768`). O léxico de truecasing pode continuar sendo o gerado a
+partir dos metadados históricos.
+
 ### 3. Gerar embeddings (`embed.py`)
 
 Com um servidor OpenAI-compatível (ex.: TEI em `http://127.0.0.1:8000/v1`):
@@ -141,18 +235,25 @@ Tempo esperado: 30–90 min com GPU/MPS; 2–6 h em CPU; depende do servidor rem
 ```bash
 .venv/bin/python tools/dataset/finalize.py \
   --metadata tools/dataset/work/metadata \
+  --metadata tools/dataset/work/recent/metadata \
   --emb tools/dataset/work/emb768 \
+  --emb tools/dataset/work/recent/emb768 \
   --out tools/dataset/work/release \
   --version 2026.10.21
 ```
 
-Copia os metadados, alinha os embeddings por `id`, gera a projeção de 256
-dimensões e o `manifest.json`. Falha se algum `id` não tiver embedding; use
-`--allow-missing` apenas em caráter excepcional (a contagem é registrada no
-manifesto). O vetor de sonda é calculado pelo backend indicado em
-`--probe-backend` (aceita os mesmos parâmetros do `embed.py`).
+`--metadata` e `--emb` podem ser repetidos para combinar diretórios. O
+finalize junta todas as partes, ordena por `(year, id)`, alinha os embeddings
+por `id`, gera a projeção de 256 dimensões e o `manifest.json` (que passa a
+incluir a chave `sources`, com nome, URL, número de registros e observação de
+licença por fonte). Com um único diretório, as fronteiras das partes são
+preservadas; com vários, as partes são re-agrupadas em blocos de 250 mil
+linhas. Falha se algum `id` não tiver embedding; use `--allow-missing` apenas
+em caráter excepcional (a contagem é registrada no manifesto). O vetor de
+sonda é calculado pelo backend indicado em `--probe-backend` (aceita os mesmos
+parâmetros do `embed.py`).
 
-Tempo esperado: 5–15 min.
+Tempo esperado: 5–15 min (um pouco mais ao combinar diretórios).
 
 ### 5. Publicar (`publish.py`)
 
@@ -182,6 +283,11 @@ tools/dataset/work/
   stage/          Parquet intermediário e banco temporário do DuckDB
   metadata/       part-000.parquet, part-001.parquet, ...
   emb768/         unit-00000.parquet, unit-00001.parquet, ...
+  recent/
+    raw/          páginas JSON.gz + _sources_recent.json
+    metadata/     part-007.parquet (numerada após as existentes)
+    emb768/       unidades dos trabalhos recentes
+    normalize_recent_report.json
   release/
     metadata/            part-XXX.parquet
     embeddings-768/      part-XXX.parquet
@@ -204,3 +310,19 @@ tools/dataset/work/
   memória sob controle.
 - **`publish.py` recusa um arquivo**: a release contém algo fora da allowlist;
   remova o arquivo antes de publicar.
+- **Coleta recente lenta ou travada**: o `harvest_recent.py` força IPv4, que
+  costuma ser mais estável para esses servidores. Se uma resposta demorar,
+  interrompa e rode de novo: as páginas já baixadas são reaproveitadas.
+- **BDTD recusa páginas profundas**: a API só serve os primeiros 1.000
+  registros de cada consulta. O coletor divide o ano pelo prefixo do
+  identificador até cada parte caber; se a soma das partes não fechar com o
+  total da API, ele falha com uma mensagem clara em vez de publicar dados
+  incompletos.
+- **BDTD responde 429 (muitas requisições)**: use `--rate 0.5` (padrão) ou
+  menos; o plano e as páginas já baixadas são reaproveitados. O coletor já
+  tenta cinco vezes com espera exponencial. Consultas com mais de uma
+  restrição além do ano também provocam 429; o coletor sempre as agrupa em uma
+  única expressão booleana.
+- **Ano recente com total 0 na CAPES**: o catálogo pode ainda não ter publicado
+  aquele ano; a BDTD costuma estar disponível antes. Rode a coleta novamente
+  mais tarde.

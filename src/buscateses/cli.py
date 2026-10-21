@@ -78,7 +78,9 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the extensible argparse tree."""
     parser = argparse.ArgumentParser(
         prog="buscateses",
-        description="Busca local no Catálogo de Teses e Dissertações da CAPES.",
+        description=(
+            "Busca local em teses e dissertações brasileiras (CAPES e BDTD)."
+        ),
     )
     parser.add_argument("--version", action="version", version=f"BuscaTeses {__version__}")
     subparsers = parser.add_subparsers(dest="command", metavar="comando")

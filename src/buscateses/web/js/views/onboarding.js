@@ -22,7 +22,7 @@ const STEPS = [
   },
   {
     title: "Catálogo de teses",
-    text: "Metadados oficiais da CAPES para pesquisar.",
+    text: "Teses e dissertações da CAPES e da BDTD para pesquisar.",
   },
   {
     title: "Assistentes de IA",
@@ -422,7 +422,7 @@ export async function renderOnboarding(outlet, ctx) {
             ? `${formatNumber(status.catalog.records)} registros entre ${formatYears(
                 status.catalog.years,
               )}.`
-            : "Metadados oficiais da CAPES, com busca por texto e filtros.",
+            : "Teses e dissertações da CAPES e da BDTD, com busca por texto e filtros.",
         ),
       ),
     ];

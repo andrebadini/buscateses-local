@@ -89,6 +89,7 @@ function facetGroup(
  *   globalFacets: Record<string, any>,
  *   prefix: string,
  *   onChange: () => void,
+ *   yearBounds?: {min?: number, max?: number},
  * }} options
  */
 export function createFilters({
@@ -97,7 +98,14 @@ export function createFilters({
   globalFacets,
   prefix,
   onChange,
+  yearBounds = {},
 }) {
+  const firstYear = Number.isFinite(Number(yearBounds.min))
+    ? Number(yearBounds.min)
+    : 1987;
+  const lastYear = Number.isFinite(Number(yearBounds.max))
+    ? Number(yearBounds.max)
+    : new Date().getFullYear();
   const form = h("form", {
     class: "filters-form",
     "aria-label": "Filtros da busca",
@@ -121,20 +129,20 @@ export function createFilters({
     class: "input",
     type: "number",
     inputmode: "numeric",
-    min: "1980",
-    max: "2100",
+    min: String(firstYear),
+    max: String(lastYear),
     step: "1",
-    placeholder: "1987",
+    placeholder: String(firstYear),
     value: searchState.yearMin ?? "",
   });
   const maxInput = h("input", {
     class: "input",
     type: "number",
     inputmode: "numeric",
-    min: "1980",
-    max: "2100",
+    min: String(firstYear),
+    max: String(lastYear),
     step: "1",
-    placeholder: "2024",
+    placeholder: String(lastYear),
     value: searchState.yearMax ?? "",
   });
 
@@ -331,6 +339,7 @@ export function createFilters({
  *   globalFacets: Record<string, any>,
  *   onChange: () => void,
  *   activeCount: number,
+ *   yearBounds?: {min?: number, max?: number},
  * }} options
  */
 export function createFilterDrawer({
@@ -339,6 +348,7 @@ export function createFilterDrawer({
   globalFacets,
   onChange,
   activeCount,
+  yearBounds = {},
 }) {
   const dialog = h("dialog", {
     class: "filters-dialog",
@@ -365,6 +375,7 @@ export function createFilterDrawer({
     globalFacets,
     prefix: "drawer",
     onChange,
+    yearBounds,
   });
 
   dialog.append(

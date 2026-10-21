@@ -1,6 +1,7 @@
 /** "Sobre": data sources, AI model, licenses and disclaimer. */
 
 import { h } from "../dom.js";
+import { formatYears } from "../format.js";
 import { loadStatus, state } from "../state.js";
 
 function externalLink(href, text) {
@@ -23,6 +24,8 @@ function section(title, ...children) {
 export async function renderAbout(outlet, ctx) {
   const status = await loadStatus().catch(() => state.status);
   const version = status?.app?.version || "—";
+  const catalogYears = formatYears(status?.catalog?.years);
+  const catalogPeriod = catalogYears ? ` O catálogo instalado reúne trabalhos defendidos entre ${catalogYears}.` : "";
 
   outlet.replaceChildren(
     h("div", { class: "about" },
@@ -30,7 +33,7 @@ export async function renderAbout(outlet, ctx) {
       h(
         "p",
         { class: "page-head" },
-        "Uma forma local e cuidadosa de pesquisar o Catálogo de Teses e Dissertações da CAPES, com apoio de busca por significado e de assistentes de IA.",
+        "Uma forma local e cuidadosa de pesquisar teses e dissertações brasileiras, com apoio de busca por significado e de assistentes de IA.",
       ),
       section(
         "O que é",
@@ -45,19 +48,21 @@ export async function renderAbout(outlet, ctx) {
         h(
           "p",
           {},
-          "Os metadados vêm do ",
-          externalLink(
-            "https://catalogodeteses.capes.gov.br/catalogo-teses/",
-            "Catálogo de Teses e Dissertações da CAPES",
-          ),
-          " e dos ",
+          "Os metadados vêm de três fontes públicas: os ",
           externalLink("https://dadosabertos.capes.gov.br/", "dados abertos da CAPES"),
-          ", disponibilizados sob a licença ",
+          " (sob ",
           externalLink(
             "https://creativecommons.org/licenses/by/4.0/deed.pt-br",
             "Creative Commons Atribuição 4.0",
           ),
-          ".",
+          "), o ",
+          externalLink(
+            "https://catalogodeteses.capes.gov.br/catalogo-teses/",
+            "Catálogo de Teses e Dissertações da CAPES",
+          ),
+          " e a ",
+          externalLink("https://bdtd.ibict.br/", "BDTD (IBICT)"),
+          ` para os anos mais recentes.${catalogPeriod}`,
         ),
         h(
           "ul",
@@ -70,7 +75,12 @@ export async function renderAbout(outlet, ctx) {
           h(
             "li",
             {},
-            "Ao reutilizar os metadados, mantenha a atribuição à CAPES e à fonte original.",
+            "Ao reutilizar os metadados, mantenha a atribuição à CAPES e, nos registros da BDTD, ao IBICT e à biblioteca digital de origem.",
+          ),
+          h(
+            "li",
+            {},
+            "Os anos mais recentes têm cobertura parcial, pois novos trabalhos são registrados ao longo do ano.",
           ),
           h(
             "li",
@@ -127,7 +137,7 @@ export async function renderAbout(outlet, ctx) {
         h(
           "p",
           { class: "disclaimer" },
-          "O BuscaTeses é um projeto independente e não tem vínculo, patrocínio ou aprovação da CAPES, do Ministério da Educação ou da Google. Os nomes e marcas citados pertencem aos seus respectivos titulares.",
+          "O BuscaTeses é um projeto independente e não tem vínculo, patrocínio ou aprovação da CAPES, do IBICT, do Ministério da Educação ou da Google. Os nomes e marcas citados pertencem aos seus respectivos titulares.",
         ),
       ),
       h("p", { class: "muted small" }, `Versão ${version} · feito para pesquisar com calma.`),

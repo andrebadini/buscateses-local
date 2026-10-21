@@ -209,7 +209,7 @@ desligada em **Configurações**). Não há atualização automática: baixe o n
 
 ## Atualizar o catálogo
 
-Quando a CAPES publica dados novos, o BuscaTeses avisa. Para atualizar:
+Quando uma nova versão do catálogo é publicada, o BuscaTeses avisa. Para atualizar:
 
 - no app, abra **Configurações → Verificar atualizações**;
 - ou no terminal:

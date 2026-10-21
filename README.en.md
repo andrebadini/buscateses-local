@@ -15,9 +15,10 @@
 <p align="center"><a href="README.md">Português</a> · <b>English</b></p>
 
 **BuscaTeses** is a free, open-source application for searching, on your own computer,
-**1,670,528 theses and dissertations** defended in Brazil between **1987 and 2024**, based on the CAPES Catalog of
-Theses and Dissertations. It understands the *meaning* of your question, not just the words, searches your **own books
-and papers** as well, and talks to AI assistants such as **Claude, Codex, Cursor and Gemini** through the MCP protocol.
+**1,728,035 theses and dissertations** defended in Brazil between **1987 and 2026**, based on the CAPES Catalog of
+Theses and Dissertations and, for the most recent years, on the BDTD (IBICT) as well. It understands the *meaning* of
+your question, not just the words, searches your **own books and papers** as well, and talks to AI assistants such as
+**Claude, Codex, Cursor and Gemini** through the MCP protocol.
 
 <p align="center">
   <img src="docs/assets/screenshots/busca.png" alt="BuscaTeses search results showing thesis cards with filters for year, degree, state and area" width="900">
@@ -62,7 +63,7 @@ and papers** as well, and talks to AI assistants such as **Claude, Codex, Cursor
 | Linux (x86_64) | [BuscaTeses-linux-x86_64.tar.gz](https://github.com/andrebadini/buscateses-local/releases/latest/download/BuscaTeses-linux-x86_64.tar.gz) | native window or browser |
 
 **You will need:** about **12 GB of free disk space**, 8 GB of RAM (recommended) and internet access on first
-use, to download the catalog (~2.8 GB) and the embedding model (~330 MB). After that, the connection is only used to
+use, to download the catalog (~2.9 GB) and the embedding model (~330 MB). After that, the connection is only used to
 check for updates (optional) and, if you enable it, to load VLibras.
 
 <details>
@@ -91,14 +92,14 @@ When you open BuscaTeses for the first time, the **Getting started** screen take
 
 1. **Downloads the embedding model** that turns texts into vectors for meaning-based search (~330 MB). It runs on
    your computer.
-2. **Downloads and organizes the thesis catalog** (~2.8 GB). It takes 10 to 40 minutes, depending on your
+2. **Downloads and organizes the thesis catalog** (~2.9 GB). It takes 10 to 40 minutes, depending on your
    internet connection and computer.
 3. **Connects your AI assistants** (optional), with one click per assistant.
 
 After that, BuscaTeses works offline. The connection is used only to download the model and the catalog, check for
 updates (optional; it can be disabled in **Settings**) and, if you enable it, load VLibras. There is no telemetry, no
-account and no upload of your searches or documents. When CAPES publishes new data, the app notifies you and updates
-the catalog with one click.
+account and no upload of your searches or documents. When a new catalog version is published, the app notifies you
+and updates the data with one click.
 
 ## Install with the help of an AI assistant
 
@@ -186,8 +187,8 @@ installation are deleted automatically at the end. The data folder is `~/Library
 
 <details><summary><b>Does BuscaTeses include the full text of the theses?</b></summary>
 
-No. The CAPES catalog provides title, authorship, advising, abstract, keywords and other metadata. When CAPES provides
-a link to the full text, the **Full text** button opens the original page. You can download the PDF and add it to your
+No. The sources provide title, authorship, advising, abstract, keywords and other metadata. When a source provides a
+link to the full text, the **Full text** button opens the original page. You can download the PDF and add it to your
 library to search inside it.
 </details>
 
@@ -211,11 +212,18 @@ More answers in [docs/SOLUCAO-DE-PROBLEMAS.md](docs/SOLUCAO-DE-PROBLEMAS.md) *(i
 ## The data
 
 The catalog comes from [CAPES open data](https://dadosabertos.capes.gov.br) (Catalog of Theses and Dissertations,
-Creative Commons Attribution license), normalized and enriched with semantic vectors. The ready-to-use version is
-published as an open dataset on Hugging Face:
+Creative Commons Attribution license) for 1987–2024 and from two public sources for the following years: the
+[CAPES Catalog of Theses and Dissertations](https://catalogodeteses.capes.gov.br/catalogo-teses/) and the
+[BDTD (IBICT)](https://bdtd.ibict.br/). Everything is normalized and enriched with semantic vectors. The ready-to-use
+version is published as an open dataset on Hugging Face:
 **[andrebadini/catalogo-teses-capes](https://huggingface.co/datasets/andrebadini/catalogo-teses-capes)**, which can be
 used in other research projects (pandas, DuckDB, `datasets`). Personal data such as national ID numbers and internal
 identifiers have been removed. The whole process is reproducible with the scripts in [`tools/dataset`](tools/dataset).
+
+> **Recent years:** 2025 (46,131 works) and 2026 (11,376, through October) are still incomplete, because CAPES
+> consolidates its annual collection later and the BDTD depends on each institution publishing to its repository.
+> Coverage grows with each catalog release, and the app tells you when an update is available. Details in
+> [docs/DADOS.md](docs/DADOS.md).
 
 ## How it works
 
@@ -250,7 +258,10 @@ Full guide, conventions and how to build installers: [CONTRIBUTING.md](CONTRIBUT
 ## License, credits and disclaimer
 
 - Code: [MIT](LICENSE).
-- Data: CAPES — Catalog of Theses and Dissertations, [Creative Commons Attribution](https://dadosabertos.capes.gov.br).
+- Data from 1987–2024: CAPES — Catalog of Theses and Dissertations,
+  [Creative Commons Attribution](https://dadosabertos.capes.gov.br).
+- Data from 2025 onward: CAPES Catalog of Theses and Dissertations and [BDTD (IBICT)](https://bdtd.ibict.br/), with
+  public metadata; full-text licenses vary by repository.
 - Model: [EmbeddingGemma](https://huggingface.co/google/embeddinggemma-300m), from Google, subject to the
   [Gemma Terms of Use](https://ai.google.dev/gemma/terms); ONNX version by
   [onnx-community](https://huggingface.co/onnx-community/embeddinggemma-300m-ONNX).
@@ -259,6 +270,6 @@ Full guide, conventions and how to build installers: [CONTRIBUTING.md](CONTRIBUT
 
 Full credits in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-BuscaTeses is an independent project, **not affiliated with CAPES**, Google or any institution mentioned.
+BuscaTeses is an independent project, **not affiliated with CAPES or IBICT**, Google or any institution mentioned.
 
 If BuscaTeses helped your research, cite it (see [CITATION.cff](CITATION.cff)) and leave a ⭐ on the repository.

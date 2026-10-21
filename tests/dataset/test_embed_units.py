@@ -107,3 +107,28 @@ def test_claim_unit_recovers_abandoned_lock(tmp_path: Path) -> None:
     assert lock.is_file()
     # A fresh lock cannot be claimed again.
     assert not embed.claim_unit(out, 0)
+
+
+def test_embed_reads_a_numbered_recent_part(tmp_path: Path) -> None:
+    metadata = tmp_path / "metadata"
+    metadata.mkdir()
+    identifiers = ["bdtd:1", "capes-catalogo:2", "bdtd:3"]
+    arrays = [
+        pa.array(identifiers, type=pa.string()),
+        pa.array([2025] * len(identifiers), type=pa.int16()),
+    ]
+    arrays.extend(
+        pa.array([None] * len(identifiers), type=dtype)
+        for _, dtype in common.METADATA_FIELDS[2:]
+    )
+    table = pa.Table.from_arrays(arrays, schema=common.METADATA_SCHEMA)
+    pq.write_table(table, metadata / "part-007.parquet")
+
+    out = tmp_path / "emb"
+    backend = FakeBackend()
+    processed = embed.embed_metadata(metadata, out, backend, _tokenizer(), max_units=1)
+
+    assert processed == 1
+    assert backend.calls == 1
+    written = pq.read_table(out / "unit-00000.parquet")
+    assert written.column("id").to_pylist() == identifiers
