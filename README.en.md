@@ -44,11 +44,11 @@ and papers** as well, and talks to AI assistants such as **Claude, Codex, Cursor
 <table>
   <tr>
     <td width="50%"><img src="docs/assets/screenshots/ficha.png" alt="Full record of a dissertation with abstract, metadata, ABNT reference and similar works"><br><sub>Full record, ABNT citation and similar works</sub></td>
-    <td width="50%"><img src="docs/assets/screenshots/busca-escuro.png" alt="Search results in dark theme"><br><sub>Dark theme</sub></td>
+    <td width="50%"><img src="docs/assets/screenshots/ia-mcp.png" alt="AI assistant querying BuscaTeses through MCP and receiving real dissertations about platform liability"><br><sub>Your AI searching and citing real theses through MCP</sub></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/assets/screenshots/conectar.png" alt="Screen to connect BuscaTeses to AI assistants such as Claude, Codex, Cursor, ChatGPT and Claude.ai"><br><sub>One-click connection to AI assistants</sub></td>
-    <td width="50%" align="center"><img src="docs/assets/screenshots/celular.png" alt="Search results on a narrow phone screen" width="260"><br><sub>Works on small screens and with zoom</sub></td>
+    <td width="50%"><img src="docs/assets/screenshots/pesquisa-juridica.png" alt="Annotated legal search on platform liability with filters, tags and export"><br><sub>Legal research with filters and ABNT export</sub></td>
   </tr>
 </table>
 

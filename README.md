@@ -45,11 +45,11 @@ do protocolo MCP.
 <table>
   <tr>
     <td width="50%"><img src="docs/assets/screenshots/ficha.png" alt="Ficha completa de uma dissertação com resumo, metadados, referência ABNT e trabalhos semelhantes"><br><sub>Ficha completa, referência ABNT e trabalhos semelhantes</sub></td>
-    <td width="50%"><img src="docs/assets/screenshots/busca-escuro.png" alt="Resultados da busca no tema escuro"><br><sub>Tema escuro</sub></td>
+    <td width="50%"><img src="docs/assets/screenshots/ia-mcp.png" alt="Assistente de IA consultando o BuscaTeses pelo MCP e recebendo dissertações reais sobre responsabilidade das plataformas digitais"><br><sub>Sua IA pesquisando e citando teses reais pelo MCP</sub></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/assets/screenshots/conectar.png" alt="Tela para conectar o BuscaTeses a assistentes de IA como Claude, Codex, Cursor, ChatGPT e Claude.ai"><br><sub>Conexão com assistentes de IA em um clique</sub></td>
-    <td width="50%" align="center"><img src="docs/assets/screenshots/celular.png" alt="Resultados da busca em tela estreita de celular" width="260"><br><sub>Funciona em telas pequenas e com zoom</sub></td>
+    <td width="50%"><img src="docs/assets/screenshots/pesquisa-juridica.png" alt="Pesquisa sobre responsabilidade civil das plataformas digitais com filtros, etiquetas e exportação anotados"><br><sub>Pesquisa jurídica com filtros e exportação em ABNT</sub></td>
   </tr>
 </table>
 
