@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Publish a validated release to the Hugging Face dataset repository.
 
-The upload is guarded by a strict allowlist (only the dataset card, the
-manifest and the three Parquet directories), a forbidden-column audit and a
+The upload is guarded by a strict allowlist (only the dataset card and its
+``assets/*.png`` images, the manifest and the three Parquet directories), a forbidden-column audit and a
 SHA-256 check against ``manifest.json``.  ``--dry-run`` performs every local
 check without touching the network.
 """
@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -21,13 +22,21 @@ from common import is_forbidden_column, setup_logging, sha256_file
 LOGGER = setup_logging("publish")
 ALLOWED_ROOT_FILES = frozenset({"README.md", "manifest.json"})
 ALLOWED_DIRECTORIES = frozenset({"metadata", "embeddings-256", "embeddings-768"})
+#: Card images (``card.py``): PNGs are uploaded, the SVG sources stay local.
+ASSETS_DIRECTORY = "assets"
 ALLOWED_PATTERNS = (
     "README.md",
     "manifest.json",
     "metadata/*.parquet",
     "embeddings-256/*.parquet",
     "embeddings-768/*.parquet",
+    "assets/*.png",
 )
+CARD_PATTERNS = ("README.md", "assets/*.png")
+#: Files ``card.py`` keeps next to the release that are never uploaded.
+LOCAL_ONLY_ROOT_FILES = frozenset({"card_stats.json"})
+_ASSET_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9.-]*\.png$")
+_CARD_ASSET_RE = re.compile(r"/resolve/main/assets/([A-Za-z0-9._-]+)")
 
 
 class PublishError(RuntimeError):
@@ -38,9 +47,29 @@ def _relative(path: Path, root: Path) -> str:
     return path.relative_to(root).as_posix()
 
 
+def _is_local_only(relative: Path) -> bool:
+    if len(relative.parts) == 1:
+        return relative.name in LOCAL_ONLY_ROOT_FILES
+    return (
+        len(relative.parts) == 2
+        and relative.parts[0] == ASSETS_DIRECTORY
+        and relative.suffix == ".svg"
+    )
+
+
+def _is_asset(relative: Path) -> bool:
+    return (
+        len(relative.parts) == 2
+        and relative.parts[0] == ASSETS_DIRECTORY
+        and bool(_ASSET_NAME_RE.match(relative.name))
+    )
+
+
 def _is_allowed(relative: Path) -> bool:
     if len(relative.parts) == 1:
         return relative.name in ALLOWED_ROOT_FILES
+    if _is_asset(relative):
+        return True
     if len(relative.parts) == 2:
         return (
             relative.parts[0] in ALLOWED_DIRECTORIES
@@ -55,6 +84,19 @@ def _audit_parquet_columns(path: Path) -> None:
     forbidden = [name for name in schema.names if is_forbidden_column(name)]
     if forbidden:
         raise PublishError(f"{path.name}: coluna(s) proibida(s): {sorted(forbidden)}")
+
+
+def _check_card_assets(release: Path, assets: set[str]) -> None:
+    """Every image the card links to under ``assets/`` must be in the release."""
+    readme = release / "README.md"
+    if not readme.is_file():
+        return
+    referenced = set(_CARD_ASSET_RE.findall(readme.read_text(encoding="utf-8")))
+    absent = sorted(name for name in referenced if f"{ASSETS_DIRECTORY}/{name}" not in assets)
+    if absent:
+        raise PublishError(
+            f"O card usa imagens ausentes em assets/: {absent} (rode tools/dataset/card.py --release)"
+        )
 
 
 def validate_release(release: Path) -> dict[str, Any]:
@@ -79,7 +121,7 @@ def validate_release(release: Path) -> dict[str, Any]:
         relative = Path(_relative(path, release))
         if path.is_symlink():
             raise PublishError(f"Symlink não permitido na release: {relative.as_posix()}")
-        if path.is_dir():
+        if path.is_dir() or _is_local_only(relative):
             continue
         if not _is_allowed(relative):
             raise PublishError(f"Arquivo fora da allowlist: {relative.as_posix()}")
@@ -116,9 +158,11 @@ def validate_release(release: Path) -> dict[str, Any]:
         if sha256_file(path) != expected_sha:
             raise PublishError(f"SHA-256 divergente para {relative}")
 
-    missing = sorted(set(actual_files) - declared_paths - {"README.md", "manifest.json"})
+    assets = {relative for relative in actual_files if relative.startswith(f"{ASSETS_DIRECTORY}/")}
+    missing = sorted(set(actual_files) - declared_paths - assets - {"README.md", "manifest.json"})
     if missing:
         raise PublishError(f"Arquivos não declarados no manifesto: {missing}")
+    _check_card_assets(release, assets)
 
     for relative, path in actual_files.items():
         if relative.endswith(".parquet"):
@@ -178,14 +222,64 @@ def publish_release(
     return report
 
 
+def publish_card(
+    release: Path,
+    repo: str,
+    *,
+    dry_run: bool = False,
+    token: str | None = None,
+) -> dict[str, Any]:
+    """Upload only the dataset card (``README.md`` + ``assets/*.png``), without a new tag.
+
+    The release is still validated in full, so the card always matches the
+    published data files.
+    """
+    release = Path(release)
+    report = validate_release(release)
+    files = [
+        relative
+        for relative in report["files"]
+        if relative == "README.md" or relative.startswith("assets/")
+    ]
+    if "README.md" not in files:
+        raise PublishError("README.md ausente na release")
+    if dry_run:
+        for relative in files:
+            LOGGER.info("  upload (card): %s", relative)
+        return {**report, "files": files}
+    token = token or os.environ.get("HF_TOKEN")
+    if not token:
+        raise PublishError("Defina a variável de ambiente HF_TOKEN para publicar")
+
+    from huggingface_hub import HfApi
+
+    HfApi(token=token).upload_folder(
+        folder_path=str(release),
+        repo_id=repo,
+        repo_type="dataset",
+        commit_message=f"Card do dataset (release {report['version']})",
+        allow_patterns=list(CARD_PATTERNS),
+    )
+    LOGGER.info("Card publicado em %s (%d arquivo(s))", repo, len(files))
+    return {**report, "files": files}
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(description="Publica a release no Hugging Face")
     parser.add_argument("--release", type=Path, required=True)
     parser.add_argument("--repo", required=True, help="ex.: andrebadini/catalogo-teses-capes")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--card-only",
+        action="store_true",
+        help="envia só README.md e assets/*.png, sem criar tag",
+    )
     arguments = parser.parse_args(argv)
-    publish_release(arguments.release, arguments.repo, dry_run=arguments.dry_run)
+    if arguments.card_only:
+        publish_card(arguments.release, arguments.repo, dry_run=arguments.dry_run)
+    else:
+        publish_release(arguments.release, arguments.repo, dry_run=arguments.dry_run)
     return 0
 
 

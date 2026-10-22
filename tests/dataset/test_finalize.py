@@ -198,58 +198,14 @@ def test_finalize_aligns_and_builds_manifest(tmp_path: Path) -> None:
 
     readme = (out / "README.md").read_text(encoding="utf-8")
     assert "license: cc-by-4.0" in readme
-    assert "Contagem por década" in readme
-    assert "não afiliação" in readme.lower() or "não afiliação" in readme
+    assert "## Em números" in readme
+    assert "não afiliação" in readme.lower()
     assert "https://dadosabertos.capes.gov.br" in readme
     assert "matryoshka" in readme.lower()
+    # The card and its SVG charts are generated from the release files.
+    assert (out / "assets" / "anos.pt.svg").is_file()
+    assert (out / "card_stats.json").is_file()
 
-
-def test_dataset_card_documents_truecasing_and_citation() -> None:
-    from collections import Counter
-
-    card = finalize._render_dataset_card(
-        "2026.10.21",
-        1_670_528,
-        [1987, 2024],
-        Counter({1980: 10, 2020: 5}),
-    )
-
-    # The Portuguese summary comes first, with pt-BR thousands separators.
-    resumo = card.index("**Resumo.**")
-    english = card.index("**English summary.**")
-    assert resumo < english
-    assert "1.670.528 registros" in card[resumo:english]
-
-    # The English summary uses English thousands separators.
-    english_line = card[english:].split("\n", 1)[0]
-    assert "1,670,528 records" in english_line
-    assert "1.670.528" not in english_line
-    assert "truecased" in card
-    assert "lexicon derived from the catalogue itself" in card
-
-    # Generation notes mention the truecasing step, model revision and limit.
-    assert "Normalização de caixa (truecasing)" in card
-    assert "antes do embedding" in card
-    assert "google/embeddinggemma-300m" in card
-    assert common.EMBEDDING_REVISION in card
-    assert "512" in card and "tokens" in card
-    assert "Os metadados publicados preservam o" in card
-    assert "texto original da CAPES" in card
-
-    # Citation: hyphen-free key, version year, author and CAPES attribution.
-    assert "buscateses_capes_2026_10_21" in card
-    assert "author       = {Badini, André}" in card
-    assert "year         = {2026}" in card
-    assert "note         = {Dados originais: CAPES" in card
-    assert "Citação recomendada da fonte (CAPES)" in card
-    assert "capes_catalogo_teses_dissertacoes" in card
-
-    # New app section and corrected limitation statement.
-    assert "Uso no aplicativo BuscaTeses" in card
-    assert "embeddings-256" in card
-    assert "2013 em diante estão integralmente em maiúsculas" in card
-    assert "1987–1999" in card
-    assert "preservam o texto original da CAPES" in card
 
 
 def test_finalize_rejects_missing_embeddings(tmp_path: Path) -> None:
@@ -350,5 +306,5 @@ def test_finalize_combines_directories_and_records_sources(tmp_path: Path) -> No
 
     readme = (out / "README.md").read_text(encoding="utf-8")
     assert "BDTD (IBICT)" in readme
-    assert "cobertura de 2024 em diante" in readme
-    assert "Citação recomendada da fonte (BDTD)" in readme
+    assert "anos recentes incompletos" in readme
+    assert "bdtd_ibict" in readme

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/banner.png" alt="BuscaTeses — intelligent search across Brazilian theses and dissertations" width="760">
+  <img src="docs/assets/banner.en.png" alt="BuscaTeses — intelligent search across Brazilian theses and dissertations" width="760">
 </p>
 
 <p align="center">

@@ -2,8 +2,8 @@
 """Assemble the public release from metadata parts and embedding units.
 
 Produces ``metadata/``, ``embeddings-768/`` and ``embeddings-256/`` Parquet
-files that are aligned row by row, plus ``manifest.json`` (SPEC §3.3) and a
-Hugging Face dataset card (``README.md``).
+files that are aligned row by row, plus ``manifest.json`` (SPEC §3.3) and the
+Hugging Face dataset card (``README.md`` and SVG charts, via ``card.py``).
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import card as dataset_card
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -28,12 +29,10 @@ from common import (
     DOCUMENT_TEMPLATE,
     EMBEDDING_256_SCHEMA,
     EMBEDDING_MODEL,
-    EMBEDDING_REVISION,
     EMBEDDING_SCHEMA,
     FULL_DIMS,
     METADATA_SCHEMA,
     ONNX_REPO,
-    PACKAGE_URLS,
     PROBE_TEXT,
     QUERY_TEMPLATE,
     SOURCE_LICENSE,
@@ -323,386 +322,6 @@ def _manifest_sources(
     return entries
 
 
-def _recent_start_year(source_years: dict[str, list[int]]) -> int | None:
-    """Return the first year that came from a recent source, if any."""
-    years = [
-        bounds[0]
-        for source, bounds in source_years.items()
-        if source in {"bdtd", "capes-catalogo"} and bounds
-    ]
-    return min(years) if years else None
-
-
-def _size_category(records: int) -> str:
-    if records < 1_000:
-        return "n<1K"
-    if records < 10_000:
-        return "1K<n<10K"
-    if records < 100_000:
-        return "10K<n<100K"
-    if records < 1_000_000:
-        return "100K<n<1M"
-    if records < 10_000_000:
-        return "1M<n<10M"
-    return "n>10M"
-
-
-def _format_number(value: int) -> str:
-    return f"{value:,}".replace(",", ".")
-
-
-def _format_number_en(value: int) -> str:
-    """Format an integer with English thousands separators."""
-    return f"{value:,}"
-
-
-def _render_dataset_card(
-    version: str,
-    records: int,
-    years: Sequence[int],
-    decade_counts: Counter[int],
-    sources: Sequence[dict[str, Any]] | None = None,
-    recent_start: int | None = None,
-) -> str:
-    """Render the Hugging Face dataset card (pt-BR body, English summary)."""
-    start_year, end_year = min(years), max(years)
-    version_year = str(version).split(".", 1)[0]
-    decades = "\n".join(
-        f"| {decade}s ({max(decade, start_year)}–{min(decade + 9, end_year)}) | {_format_number(count)} |"
-        for decade, count in sorted(decade_counts.items())
-    )
-    package_list = "\n".join(f"- <{url}>" for url in PACKAGE_URLS.values())
-    recent = recent_start is not None
-    pretty_name = (
-        "Catálogo de Teses e Dissertações (CAPES e BDTD)"
-        if recent
-        else "Catálogo de Teses e Dissertações da CAPES"
-    )
-    if recent:
-        summary = (
-            f"This dataset contains {_format_number_en(records)} records from Brazilian "
-            f"theses and dissertations catalogues ({start_year}–{end_year}). Records up to "
-            f"{recent_start - 1} come from the CAPES open-data packages, published by CAPES "
-            f"under CC-BY. Records from {recent_start} onward come from the CAPES catalogue "
-            f"and the BDTD (IBICT); coverage of the current year is partial and grows as new "
-            f"defences are registered. Titles, abstracts and keywords were truecased "
-            f"(sentence case, with acronyms and proper names preserved) before embedding, "
-            f"using a lexicon derived from the catalogue itself; the published metadata "
-            f"keeps the original source text unchanged. It powers the fully local search "
-            f"application [BuscaTeses]({APP_URL}). Release {version}."
-        )
-        resumo = (
-            f"Este dataset reúne {_format_number(records)} registros de teses e dissertações "
-            f"brasileiras ({start_year}–{end_year}). Os trabalhos até {recent_start - 1} vêm dos "
-            f"pacotes de dados abertos da CAPES, publicados sob CC-BY. Os de {recent_start} em "
-            f"diante vêm do Catálogo de Teses da CAPES e da BDTD (IBICT); a cobertura do ano "
-            f"corrente é parcial e cresce conforme novas defesas são registradas. Títulos, "
-            f"resumos e palavras-chave foram normalizados para caixa de frase (preservando "
-            f"siglas e nomes próprios) antes da geração dos embeddings, usando um léxico "
-            f"derivado do próprio catálogo; os metadados publicados mantêm o texto original "
-            f"da fonte. Alimenta o aplicativo de busca totalmente local "
-            f"[BuscaTeses]({APP_URL}). Versão {version}."
-        )
-        recent_origin = (
-            f"\nOs trabalhos de {recent_start} em diante vêm de duas fontes públicas "
-            f"consultadas por API:\n\n"
-            f"- <{CAPES_CATALOGUE_URL}> — Catálogo de Teses e Dissertações da CAPES "
-            f"(resultados parciais no ano corrente), com resumo, palavras-chave e orientação "
-            f"completados pela página pública de cada trabalho na Plataforma Sucupira;\n"
-            f"- <{BDTD_URL}> — Biblioteca Digital Brasileira de Teses e Dissertações, "
-            f"mantida pelo IBICT e pelas bibliotecas digitais participantes.\n"
-        )
-        recent_license = (
-            f"\n\nOs metadados de {recent_start} em diante vêm do Catálogo de Teses "
-            "da CAPES e da BDTD. O texto completo e eventuais licenças adicionais de "
-            "cada trabalho permanecem nos repositórios de origem."
-        )
-        recent_limitation = (
-            f"\n- A cobertura de {recent_start} em diante é parcial: o catálogo da CAPES e a "
-            "BDTD recebem registros ao longo do ano."
-        )
-        recent_citation = f"""
-
-**Citação recomendada da fonte (BDTD):**
-
-```bibtex
-@misc{{bdtd_ibict,
-  author       = {{IBICT}},
-  title        = {{Biblioteca Digital Brasileira de Teses e Dissertações}},
-  howpublished = {{\\url{{{BDTD_URL}}}}},
-  note         = {{Metadados públicos; consulte a licença de cada repositório.}}
-}}
-```
-"""
-        recent_link = f"\n- BDTD (IBICT): <{BDTD_URL}>"
-        generation_intro = (
-            "1. Coleta dos CSVs públicos da CAPES (delimitador `;`, codificação "
-            "cp1252/latin-1) para 1987–2024.\n"
-            f"2. Coleta, por API, dos anos de {recent_start} em diante no Catálogo de "
-            "Teses da CAPES e na BDTD (IBICT), com paginação retomável e ritmo "
-            "limitado de requisições; resumo, palavras-chave e orientação dos "
-            "registros da CAPES vêm da página pública de cada trabalho na "
-            "Plataforma Sucupira."
-        )
-    else:
-        summary = (
-            f"This dataset contains {_format_number_en(records)} records from the "
-            f"Brazilian CAPES theses and dissertations catalogue ({start_year}–{end_year}), "
-            f"published by CAPES under CC-BY, together with 768-dimensional "
-            f"EmbeddingGemma vectors and their Matryoshka 256-dimensional projections. "
-            f"Titles, abstracts and keywords were truecased (sentence case, with acronyms "
-            f"and proper names preserved) before embedding, using a lexicon derived from "
-            f"the catalogue itself; the published metadata keeps the original CAPES text "
-            f"unchanged. It powers the fully local search application "
-            f"[BuscaTeses]({APP_URL}). Release {version}."
-        )
-        resumo = (
-            f"Este dataset reúne {_format_number(records)} registros do catálogo brasileiro de "
-            f"teses e dissertações da CAPES ({start_year}–{end_year}), publicado pela CAPES sob "
-            f"CC-BY, com vetores EmbeddingGemma de 768 dimensões e suas projeções Matryoshka de "
-            f"256 dimensões. Títulos, resumos e palavras-chave foram normalizados para caixa de "
-            f"frase (preservando siglas e nomes próprios) antes dos embeddings, usando um léxico "
-            f"derivado do próprio catálogo; os metadados publicados mantêm o texto original da "
-            f"CAPES. Alimenta o aplicativo de busca totalmente local "
-            f"[BuscaTeses]({APP_URL}). Versão {version}."
-        )
-        recent_origin = ""
-        recent_license = ""
-        recent_limitation = ""
-        recent_citation = ""
-        recent_link = ""
-        generation_intro = (
-            "1. Coleta dos CSVs públicos da CAPES (delimitador `;`, codificação "
-            "cp1252/latin-1)."
-        )
-    source_table = ""
-    if sources:
-        rows = "\n".join(
-            f"| {item['name']} | {_format_number(int(item['records']))} |"
-            for item in sources
-        )
-        source_table = (
-            "\n| Fonte | Registros |\n|---|---:|\n" + rows + "\n"
-        )
-    return f"""---
-license: cc-by-4.0
-language:
-- pt
-- en
-pretty_name: {pretty_name}
-size_categories:
-- {_size_category(records)}
-task_categories:
-- text-retrieval
-- sentence-similarity
-tags:
-- theses
-- dissertations
-- capes
-- brazil
-- academic
-- embeddings
-- portuguese
-- matryoshka
-configs:
-- config_name: metadata
-  data_files:
-  - split: train
-    path: metadata/*.parquet
-- config_name: embeddings-256
-  data_files:
-  - split: train
-    path: embeddings-256/*.parquet
-- config_name: embeddings-768
-  data_files:
-  - split: train
-    path: embeddings-768/*.parquet
----
-
-# {pretty_name}
-
-**Resumo.** {resumo}\n\n**English summary.** {summary}
-
-## Origem
-
-Os metadados de 1987 a 2024 vêm do Portal de Dados Abertos da CAPES ({SOURCE_URL}) e
-foram coletados dos seguintes pacotes:
-
-{package_list}
-{recent_origin}{source_table}
-## Licença e atribuição
-
-Os dados originais são publicados pela CAPES sob a licença Creative Commons
-Atribuição (CC-BY). Este dataset derivado é distribuído sob a mesma licença.
-Ao reutilizar o material, atribua a fonte: "CAPES — Catálogo de Teses e
-Dissertações, Portal de Dados Abertos".{recent_license}
-
-## Aviso de não afiliação
-
-Este é um projeto independente. Não há afiliação, endosso ou vínculo oficial com a
-CAPES, com o IBICT, com o Google (modelo EmbeddingGemma) ou com o Hugging Face.
-
-## Conteúdo
-
-Cada arquivo `metadata/part-XXX.parquet` tem cerca de 250 mil linhas, ordenadas por
-`(year, id)`. As partes de `embeddings-768/` e `embeddings-256/` seguem exatamente a
-mesma ordem e o mesmo particionamento; a linha *i* de uma parte de embedding corresponde
-à linha *i* da parte de metadados de mesmo número.
-
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `id` | string | Identificador estável (`capes:<id>` ou `capes87:<sha1>`). |
-| `year` | int16 | Ano de defesa/titulação. |
-| `defense_date` | string | Data ISO `YYYY-MM-DD` ou nulo. |
-| `title` | string | Título do trabalho. |
-| `author` | string | Nome do(a) autor(a). |
-| `advisors` | string | Orientadores separados por `; `; coorientadores com sufixo ` (coorientador)`. |
-| `degree` | string | Mestrado, Doutorado, Mestrado Profissional ou Doutorado Profissional. |
-| `institution` | string | Nome da instituição. |
-| `institution_acronym` | string | Sigla da instituição. |
-| `uf` | string | Unidade federativa (duas letras). |
-| `region` | string | Região brasileira. |
-| `program` | string | Nome do programa de pós-graduação. |
-| `program_code` | string | Código do programa na CAPES. |
-| `great_area` | string | Grande área do conhecimento. |
-| `knowledge_area` | string | Área do conhecimento. |
-| `evaluation_area` | string | Área de avaliação. |
-| `concentration_area` | string | Área de concentração (quando publicada). |
-| `research_line` | string | Linha de pesquisa. |
-| `keywords` | string | Palavras-chave separadas por `; `. |
-| `keywords_en` | string | Palavras-chave em inglês (2013+). |
-| `abstract` | string | Resumo em português. |
-| `abstract_en` | string | Resumo em inglês (2013+). |
-| `language` | string | Idioma do trabalho, como publicado. |
-| `pages` | int32 | Número de páginas (0 quando a CAPES não informa). |
-| `library` | string | Biblioteca depositária. |
-| `url` | string | URL http/https do texto completo, quando disponível. |
-| `source` | string | Origem do registro (`dados abertos da CAPES`, `capes-catalogo` ou `bdtd`). |
-
-### Contagem por década
-
-| Década | Registros |
-|---|---:|
-{decades}
-
-## Como foi gerado
-
-{generation_intro}
-3. Normalização por nome de coluna nos dois esquemas (1987–2012 e 2013+), com remoção
-   de campos pessoais e deduplicação por `id`. Os metadados publicados preservam o
-   texto original da fonte, inclusive a caixa alta e a grafia sem acentos.
-4. Deduplicação entre fontes: o mesmo trabalho pode aparecer no catálogo da CAPES e na
-   BDTD; nesse caso prevalece o registro do catálogo da CAPES, completado com os campos
-   ausentes vindos da BDTD. Duplicatas entre redes da BDTD são unificadas.
-5. Normalização de caixa (truecasing) **antes do embedding**: título, resumo e
-   palavras-chave passam pelo módulo `buscateses.textcase`, usando um léxico de siglas,
-   nomes próprios e acentos derivado dos próprios metadados da CAPES. Isso deixa o texto
-   legível para o modelo sem alterar os metadados publicados.
-6. Geração de embeddings com `{EMBEDDING_MODEL}` (via
-   `{ONNX_REPO}`, revisão `{EMBEDDING_REVISION}`), 768 dimensões normalizadas em L2.
-   Texto do documento: `{DOCUMENT_TEMPLATE}`, truncado pelo tokenizador em até 512
-   tokens (tokens especiais incluídos).
-7. Projeção Matryoshka: os primeiros 256 valores de cada vetor são re-normalizados em L2
-   e gravados como `float16` em `embeddings-256/`.
-8. Manifesto com contagens, anos, fontes, hashes SHA-256 e vetor de sonda para validar
-   o modelo.
-
-## Uso no aplicativo BuscaTeses
-
-O aplicativo [BuscaTeses]({APP_URL}) baixa apenas `metadata/` e `embeddings-256/`,
-confere tamanho e SHA-256 de cada arquivo no `manifest.json` e monta um índice local
-(SQLite com FTS5 + os vetores de 256 dimensões) para busca textual, por significado e
-híbrida. Todo o processamento acontece no computador do usuário, sem enviar consultas
-ou dados para a nuvem.
-
-## Exemplos de uso
-
-Com pandas/pyarrow:
-
-```python
-import pyarrow.parquet as pq
-
-tabela = pq.read_table(
-    "hf://datasets/{DATASET_REPO}/metadata/part-000.parquet"
-)
-print(tabela.num_rows)
-```
-
-Com DuckDB diretamente do Hugging Face:
-
-```python
-import duckdb
-
-duckdb.sql(
-    "SELECT year, count(*) AS n "
-    "FROM read_parquet('hf://datasets/{DATASET_REPO}/metadata/*.parquet') "
-    "GROUP BY year ORDER BY year"
-).show()
-```
-
-Com a biblioteca `datasets`:
-
-```python
-from datasets import load_dataset
-
-metadados = load_dataset("{DATASET_REPO}", "metadata", split="train")
-vetores = load_dataset("{DATASET_REPO}", "embeddings-256", split="train")
-```
-
-## Privacidade
-
-Os seguintes campos pessoais/identificadores do catálogo original **não** são
-publicados: documentos de discentes, orientadores e coorientadores;
-identificadores de pessoa; data de matrícula; tipo de vínculo; expectativa de
-atuação; e categoria docente. Nomes de autores e orientadores são mantidos por
-serem públicos no catálogo da CAPES.
-
-## Limitações
-
-- Os dados são reproduzidos como publicados pela CAPES; eventuais erros, lacunas e
-  duplicidades da fonte podem permanecer.
-- Registros de 2013 em diante estão integralmente em maiúsculas na fonte; boa parte dos
-  registros de 1987–1999 também está em maiúsculas e sem acentos. O aplicativo aplica
-  truecasing na exibição e o pipeline aplica truecasing antes do embedding, mas os
-  metadados publicados preservam o texto original da CAPES.
-- O número de páginas pode ser 0 ou estar ausente quando não informado.
-- A URL do texto completo nem sempre existe ou pode ter deixado de responder.
-- A cobertura e a data de atualização variam por ano e por fonte.{recent_limitation}
-
-## Citação
-
-Se este dataset for útil ao seu trabalho, cite o dataset derivado e a fonte original.
-
-```bibtex
-@misc{{buscateses_capes_{version.replace(".", "_").replace("-", "_")},
-  title        = {{Catálogo de Teses e Dissertações da CAPES — dataset BuscaTeses}},
-  author       = {{Badini, André}},
-  year         = {{{version_year}}},
-  howpublished = {{\\url{{https://huggingface.co/datasets/{DATASET_REPO}}}}},
-  note         = {{Dados originais: CAPES — Catálogo de Teses e Dissertações (CC-BY). Versão {version}.}}
-}}
-```
-
-**Citação recomendada da fonte (CAPES):**
-
-```bibtex
-@misc{{capes_catalogo_teses_dissertacoes,
-  author       = {{CAPES}},
-  title        = {{Catálogo de Teses e Dissertações}},
-  howpublished = {{\\url{{{SOURCE_URL}}}}},
-  note         = {{Portal de Dados Abertos da CAPES. Dados sob licença CC-BY.}}
-}}
-```
-
-CAPES. **Catálogo de Teses e Dissertações**. Portal de Dados Abertos da CAPES.
-Disponível em: <{SOURCE_URL}>.{recent_citation}
-## Links
-
-- Aplicativo BuscaTeses: <{APP_URL}>
-- Portal de Dados Abertos da CAPES: <{SOURCE_URL}>{recent_link}
-"""
-
-
 def compute_probe(
     backend_name: str,
     *,
@@ -832,9 +451,7 @@ def finalize_release(
             _matryoshka_256(matrix),
         )
 
-    decade_counts = Counter((year // 10) * 10 for year in year_values)
     sources = _manifest_sources(source_counts, source_years)
-    recent_start = _recent_start_year(source_years)
 
     if probe_vector is None:
         probe_vector = compute_probe(
@@ -878,18 +495,12 @@ def finalize_release(
     if allow_missing:
         manifest["missing_embeddings"] = missing
 
-    readme = _render_dataset_card(
-        version,
-        records,
-        year_values,
-        decade_counts,
-        sources=sources,
-        recent_start=recent_start,
-    )
-    (out_dir / "README.md").write_text(readme, encoding="utf-8")
     (out_dir / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
+    # Card (README.md + SVG charts) built from the files just written.  The PNGs
+    # are rendered afterwards with ``card.py --release`` (needs Playwright).
+    dataset_card.build(out_dir, png=False, refresh=True)
     LOGGER.info(
         "Release %s pronta: %d registro(s), %d arquivo(s), %d embedding(s) ausente(s)",
         version,

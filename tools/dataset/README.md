@@ -253,9 +253,33 @@ em caráter excepcional (a contagem é registrada no manifesto). O vetor de
 sonda é calculado pelo backend indicado em `--probe-backend` (aceita os mesmos
 parâmetros do `embed.py`).
 
+No fim, o finalize também escreve o card do dataset (`README.md`), as fontes SVG
+dos gráficos em `assets/` e o cache `card_stats.json`.
+
 Tempo esperado: 5–15 min (um pouco mais ao combinar diretórios).
 
-### 5. Publicar (`publish.py`)
+### 5. Gerar o card e as imagens (`card.py`)
+
+```bash
+uv pip install -p .venv/bin/python playwright   # uma vez; usa o Chromium do Playwright
+.venv/bin/python -m playwright install chromium   # uma vez
+.venv/bin/python tools/dataset/card.py --release tools/dataset/work/release \
+  --app-banner docs/assets
+```
+
+O card é gerado a partir dos próprios arquivos da release: o `card.py` lê os
+metadados com o DuckDB (contagens por ano e fonte, grandes áreas, nível, região,
+instituições e completude dos campos), desenha o banner e os gráficos em SVG e
+os converte para PNG em 2x com as fontes do app (Literata e Atkinson
+Hyperlegible Next). O card tem banner, selos, números principais, exemplos de
+uso (DuckDB, `datasets` e busca semântica), gráficos, esquema, completude por
+fonte, detalhes dos embeddings, usos, limitações, versões, citação (BibTeX e
+ABNT) e uma seção completa em inglês. `--app-banner` também atualiza o banner do
+README do GitHub (`docs/assets/banner.png` e `banner.en.png`) com o número de
+registros. A cada release, acrescente uma linha em `RELEASE_NOTES` no
+`card.py`. `--no-png` gera só os SVG; `--refresh` recalcula as estatísticas.
+
+### 6. Publicar (`publish.py`)
 
 ```bash
 export HF_TOKEN=...
@@ -266,12 +290,17 @@ export HF_TOKEN=...
 
 Antes de enviar, valida estritamente:
 
-- allowlist de arquivos (`README.md`, `manifest.json` e `*.parquet` nas três
-  pastas);
+- allowlist de arquivos (`README.md`, `manifest.json`, `*.parquet` nas três
+  pastas e `assets/*.png`; `card_stats.json` e `assets/*.svg` ficam só na
+  máquina local);
+- presença de todas as imagens que o card usa em `assets/`;
 - ausência de colunas proibidas nos Parquet;
 - tamanho e SHA-256 de cada arquivo contra o manifesto.
 
-Use `--dry-run` para executar todas as verificações sem acessar a rede.
+Use `--dry-run` para executar todas as verificações sem acessar a rede. Para
+atualizar só o card de uma release já publicada (sem criar tag), use
+`--card-only`: valida a release inteira e envia apenas `README.md` e
+`assets/*.png`.
 
 Tempo esperado: 10–30 min (depende do upload de ~1–2 GB).
 
@@ -292,8 +321,10 @@ tools/dataset/work/
     metadata/            part-XXX.parquet
     embeddings-768/      part-XXX.parquet
     embeddings-256/      part-XXX.parquet
+    assets/              banner e gráficos do card (PNG publicados, SVG locais)
     manifest.json
     README.md
+    card_stats.json      estatísticas do card (local)
   normalize_report.json
 ```
 

@@ -129,3 +129,50 @@ def test_dry_run_needs_no_token_and_no_network(tmp_path: Path, monkeypatch: pyte
     report = publish.publish_release(release, "andrebadini/catalogo-teses-capes", dry_run=True)
     assert report["version"] == VERSION
     assert len(report["files"]) == 5
+
+
+def test_validate_release_accepts_card_assets_and_ignores_local_files(tmp_path: Path) -> None:
+    release = _build_release(tmp_path)
+    assets = release / "assets"
+    assets.mkdir()
+    (assets / "anos.pt.png").write_bytes(b"\x89PNG")
+    (assets / "anos.pt.svg").write_text("<svg/>", encoding="utf-8")
+    (release / "card_stats.json").write_text("{}", encoding="utf-8")
+    (release / "README.md").write_text(
+        "---\nlicense: cc-by-4.0\n---\n"
+        '<img src="https://huggingface.co/datasets/x/y/resolve/main/assets/anos.pt.png">\n',
+        encoding="utf-8",
+    )
+    report = publish.validate_release(release)
+    assert "assets/anos.pt.png" in report["files"]
+    assert "assets/anos.pt.svg" not in report["files"]
+    assert "card_stats.json" not in report["files"]
+
+
+def test_validate_release_rejects_missing_card_image(tmp_path: Path) -> None:
+    release = _build_release(tmp_path)
+    (release / "README.md").write_text(
+        '<img src="https://huggingface.co/datasets/x/y/resolve/main/assets/anos.pt.png">\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(publish.PublishError, match="imagens ausentes"):
+        publish.validate_release(release)
+
+
+def test_validate_release_rejects_unexpected_asset(tmp_path: Path) -> None:
+    release = _build_release(tmp_path)
+    (release / "assets").mkdir()
+    (release / "assets" / "notes.txt").write_text("x", encoding="utf-8")
+    with pytest.raises(publish.PublishError, match="allowlist"):
+        publish.validate_release(release)
+
+
+def test_publish_card_dry_run_lists_only_card_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    release = _build_release(tmp_path)
+    (release / "assets").mkdir()
+    (release / "assets" / "banner.pt.png").write_bytes(b"\x89PNG")
+    report = publish.publish_card(release, "andrebadini/catalogo-teses-capes", dry_run=True)
+    assert report["files"] == ["README.md", "assets/banner.pt.png"]
