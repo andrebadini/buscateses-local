@@ -214,9 +214,16 @@ def test_dataset_card_documents_truecasing_and_citation() -> None:
         Counter({1980: 10, 2020: 5}),
     )
 
+    # The Portuguese summary comes first, with pt-BR thousands separators.
+    resumo = card.index("**Resumo.**")
+    english = card.index("**English summary.**")
+    assert resumo < english
+    assert "1.670.528 registros" in card[resumo:english]
+
     # The English summary uses English thousands separators.
-    assert "1,670,528 records" in card
-    assert "1.670.528" not in card
+    english_line = card[english:].split("\n", 1)[0]
+    assert "1,670,528 records" in english_line
+    assert "1.670.528" not in english_line
     assert "truecased" in card
     assert "lexicon derived from the catalogue itself" in card
 

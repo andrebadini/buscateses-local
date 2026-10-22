@@ -391,6 +391,18 @@ def _render_dataset_card(
             f"keeps the original source text unchanged. It powers the fully local search "
             f"application [BuscaTeses]({APP_URL}). Release {version}."
         )
+        resumo = (
+            f"Este dataset reúne {_format_number(records)} registros de teses e dissertações "
+            f"brasileiras ({start_year}–{end_year}). Os trabalhos até {recent_start - 1} vêm dos "
+            f"pacotes de dados abertos da CAPES, publicados sob CC-BY. Os de {recent_start} em "
+            f"diante vêm do Catálogo de Teses da CAPES e da BDTD (IBICT); a cobertura do ano "
+            f"corrente é parcial e cresce conforme novas defesas são registradas. Títulos, "
+            f"resumos e palavras-chave foram normalizados para caixa de frase (preservando "
+            f"siglas e nomes próprios) antes da geração dos embeddings, usando um léxico "
+            f"derivado do próprio catálogo; os metadados publicados mantêm o texto original "
+            f"da fonte. Alimenta o aplicativo de busca totalmente local "
+            f"[BuscaTeses]({APP_URL}). Versão {version}."
+        )
         recent_origin = (
             f"\nOs trabalhos de {recent_start} em diante vêm de duas fontes públicas "
             f"consultadas por API:\n\n"
@@ -443,6 +455,16 @@ def _render_dataset_card(
             f"the catalogue itself; the published metadata keeps the original CAPES text "
             f"unchanged. It powers the fully local search application "
             f"[BuscaTeses]({APP_URL}). Release {version}."
+        )
+        resumo = (
+            f"Este dataset reúne {_format_number(records)} registros do catálogo brasileiro de "
+            f"teses e dissertações da CAPES ({start_year}–{end_year}), publicado pela CAPES sob "
+            f"CC-BY, com vetores EmbeddingGemma de 768 dimensões e suas projeções Matryoshka de "
+            f"256 dimensões. Títulos, resumos e palavras-chave foram normalizados para caixa de "
+            f"frase (preservando siglas e nomes próprios) antes dos embeddings, usando um léxico "
+            f"derivado do próprio catálogo; os metadados publicados mantêm o texto original da "
+            f"CAPES. Alimenta o aplicativo de busca totalmente local "
+            f"[BuscaTeses]({APP_URL}). Versão {version}."
         )
         recent_origin = ""
         recent_license = ""
@@ -499,7 +521,7 @@ configs:
 
 # {pretty_name}
 
-**English summary.** {summary}
+**Resumo.** {resumo}\n\n**English summary.** {summary}
 
 ## Origem
 
