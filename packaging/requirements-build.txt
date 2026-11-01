@@ -1,9 +1,9 @@
 # Build-only dependencies. The application dependencies come from pyproject.toml.
-pyinstaller>=6,<7
-pillow>=10,<14
+pyinstaller>=6.22.3,<7
+pillow>=13.0.0,<14
 pywebview>=5,<7
 
 # Optional on Linux/macOS: renders the SVG icon without a browser. When the
 # native cairo library is missing, packaging/icons/make_icons.py falls back to
 # the Chromium bundled with Playwright.
-cairosvg>=2.7,<3
+cairosvg>=2.9.1,<3
