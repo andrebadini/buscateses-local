@@ -35,7 +35,7 @@ dependencies = [
   "pyarrow>=15,<30",
   "onnxruntime>=1.18,<2",
   "tokenizers>=0.15,<1",
-  "mcp>=1.23,<2",
+  "mcp>=1.23,<3",
   "pypdfium2>=4.30,<7",
   "charset-normalizer>=3,<4",
   "requests>=2.31,<3",
@@ -48,7 +48,7 @@ dev = ["pytest>=8,<10", "httpx>=0.27,<1", "ruff>=0.6,<1", "fpdf2>=2.7,<3"]
 # Extra packages used by tools/dataset and by the tests that exercise it.
 dataset = [
   "pyarrow>=15,<30",
-  "duckdb>=1.0,<2",
+  "duckdb>=1.0,<3",
   "tokenizers>=0.15,<1",
   "huggingface_hub>=0.24,<3",
   "numpy>=1.26,<3",
